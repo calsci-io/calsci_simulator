@@ -1,5 +1,7 @@
 import random, pygame, sys
 from pygame.locals import *
+import threading
+import queue
 
 from display.characters import Characters
 
@@ -29,6 +31,26 @@ COL=70
 page_col={"PAGE":0,
           "COL":0}
 
+surface_queue = queue.Queue()
+data_queue = queue.Queue()
+
+def worker():
+    while True:
+        try:
+            data = data_queue.get_nowait()
+            surface = pygame.Surface((1*BOXSIZE,8*BOXSIZE))
+            for i in range(8):
+                if data[0] & 1<<i == 1<<i:
+                    surface.fill(PIXELON, rect=(0,i*BOXSIZE,BOXSIZE,BOXSIZE))
+                else:
+                    surface.fill(PIXELOFF, rect=(0,i*BOXSIZE,BOXSIZE,BOXSIZE))
+            surface_queue.put((surface, data[1]))
+        except queue.Empty:
+            pass
+
+thread = threading.Thread(target=worker,daemon=True)
+
+thread.start()
 
 class Display:
     def __init__(self, screen, chrs):
@@ -39,6 +61,8 @@ class Display:
     def draw_pixel(self,posx, posy, size, color):
         pygame.draw.rect(self.screen, color, (posx, posy, size, size))
 
+    def clear_display(self):
+        self.turn_off_all_pixels()
 
     def turn_off_all_pixels(self):
         for i in range(BOARDWIDTH):
@@ -61,34 +85,42 @@ class Display:
     def turn_off_pixel(self,x, y):
         self.draw_pixel(posx=x*(BOXSIZE+GAPSIZE)+XMARGIN, posy=y*(BOXSIZE+GAPSIZE)+YMARGIN, size=BOXSIZE, color=PIXELOFF)
 
+    def get_pos(self,x,y):
+        return (x*(BOXSIZE+GAPSIZE)+XMARGIN, y*(BOXSIZE+GAPSIZE)+YMARGIN)
+
     def write_data(self,data):
-        for i in range(8):
-            if data & 1<<i == 1<<i:
-                self.turn_on_pixel(page_col["COL"], page_col["PAGE"]*8+i)
-            else:
-                self.turn_off_pixel(page_col["COL"], page_col["PAGE"]*8+i)
+        data_queue.put((data, self.get_pos(page_col["COL"], page_col["PAGE"]*8)))
+        return surface_queue.get() 
+        # for i in range(8):
+        #     if data & 1<<i == 1<<i:
+        #         self.turn_on_pixel(page_col["COL"], page_col["PAGE"]*8+i)
+        #     else:
+        #         self.turn_off_pixel(page_col["COL"], page_col["PAGE"]*8+i)
 
     def reset_cursor(self):
         page_col["PAGE"] = 0
         page_col["COL"] = 0
     def display_print(self,val):
+        surfaces = []
         if page_col["PAGE"] >= 8:
-            return
+            return surfaces
         for a in val:
             character = self.chrs.Chr2bytes(Chr=a)
+            if page_col["PAGE"] >= 8:
+                continue
             for k in character:
-                self.write_data(k)
+                surfaces.append(self.write_data(k))
                 page_col["COL"]+=1
-                pygame.display.update()
-            self.write_data(0b00000000)
+            surfaces.append(self.write_data(0b00000000))
             page_col["COL"]+=1
-            pygame.display.update()
 
             if page_col["COL"]+2 == BOARDWIDTH:
                 page_col["PAGE"]+=1
                 page_col["COL"]=0
             if page_col["PAGE"] >= 8:
-                return
+                continue
+        
+        return surfaces
 
     # page_col["COL"]=70
     # page_col["PAGE"]=6

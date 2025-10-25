@@ -2,7 +2,7 @@ import pygame
 from components import Button
 from keymap import Keypad
 from constants import KeyButtons as KB, KeypadMode as KM
-from display.display import Display, WINDOWHEIGHT 
+from display.display import Display, WINDOWHEIGHT, thread
 from display.characters import Characters 
 
 pygame.init()
@@ -79,14 +79,16 @@ while True:
             if event.button != 1:
                 continue
             text = typer.start_typing(event.pos)
-            if text=="on":
+            if text=="AC":
                 display.turn_off_all_pixels()
+                display.reset_cursor()
                 temp=""
                 continue 
             if text:
                 temp+=text
-                display.display_print(temp)
-                display.reset_cursor()
+                surfaces = display.display_print(text)
+                screen.blits(surfaces)
+
 
 
     pygame.display.update()
