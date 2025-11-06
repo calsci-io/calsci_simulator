@@ -42,6 +42,9 @@ class Typer:
 
     def start_typing(self):
         for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button != 1:
                     continue
@@ -52,7 +55,7 @@ class Typer:
                         print("key pressed:", key)
                         pygame.display.update()
                         return key
-        
+        return ""
 
     def change_keymaps(self, key):
         if key == KB.ALPHA:

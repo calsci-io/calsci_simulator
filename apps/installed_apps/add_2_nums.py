@@ -34,7 +34,7 @@ def add_2_nums(db={}):
         # if inp == "off":
             # boot_up_data_update.main()
             # machine.deepsleep()
-        if inp not in ["alpha", "beta", "ok"]:
+        if inp not in ["alpha", "beta", "ok"] and inp != "":
             form.update_buffer(inp)
         form_refresh.refresh(state=nav.current_state())
         time.sleep(0.15)
