@@ -14,6 +14,7 @@ from keymap import Keypad
 from components import Button
 from constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
+from typer import draw_nav_buttons
 
 screen = pygame.display.set_mode((670, 1001))
 pygame.display.set_caption("Keyboard")
@@ -23,22 +24,22 @@ keypad = Keypad()
 screen.fill((240, 240, 240))
 
 
-def draw_buttons():
-    buttons = []
-    for x in range(5):
-        for y in range(10):
-            button = Button(text=keypad.key_out(x,y))
-            buttons.append(button)
-            button.draw(screen, 3+x, WINDOWHEIGHT//50+y)
+# def draw_buttons():
+#     buttons = []
+#     for x in range(5):
+#         for y in range(10):
+#             button = Button(text=keypad.key_out(x,y))
+#             buttons.append(button)
+#             button.draw(screen, 3+x, WINDOWHEIGHT//50+y)
 
-    return buttons    
+#     return buttons    
 
-buttons = draw_buttons()
+buttons =draw_nav_buttons(screen=screen, x=0, y=0)
 class Typer:
     def __init__(self,keypad, keypad_map):
         self.keypad = keypad
         self.keypad_map = keypad_map
-        self.buttons = draw_buttons() 
+        self.buttons = buttons 
 
     def start_typing(self):
         for event in pygame.event.get():
@@ -47,12 +48,12 @@ class Typer:
                     continue
                 pos = pygame.mouse.get_pos()
                 for button in self.buttons:
+                
                     if button.is_clicked(pos):
                         key = button.get_text()
                         print("key pressed:", key)
                         pygame.display.update()
                         return key
-        
 
     def change_keymaps(self, key):
         if key == KB.ALPHA:

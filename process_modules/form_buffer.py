@@ -109,6 +109,7 @@ class Form:
 
         self.display_buffer=self.form_list[self.menu_display_position:self.menu_display_position+self.menu_display_size]
         self.display_cursor=self.menu_cursor-self.menu_display_position
+
     
     def ref_ar(self):
         return self.refresh_rows

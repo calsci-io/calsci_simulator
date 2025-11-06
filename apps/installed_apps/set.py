@@ -2,9 +2,9 @@ import time
 import json
 # import machine
 from data_modules.object_handler import current_app, nav, keypad_state_manager, menu, menu_refresh, typer, display
-from apps.settings.backlight import backlight, backlight_pin
+# from apps.settings.backlight import backlight, backlight_pin
 from apps.settings.dark_mode import dark_mode
-from process_modules import boot_up_data_update
+# from process_modules import boot_up_data_update
 from data_modules.object_handler import app
 
 def set():
@@ -40,8 +40,8 @@ def set():
             elif inp_menu == "off":
                 boot_up_data_update.main()
                 # machine.deepsleep()
-            elif inp_menu =="ok" and menu.menu_list[menu.menu_cursor] in ["backlight"]:
-                backlight()
+            # elif inp_menu =="ok" and menu.menu_list[menu.menu_cursor] in ["backlight"]:
+            #     backlight()
             elif inp_menu =="ok" and menu.menu_list[menu.menu_cursor] in ["Dark_Mode"]:
                 dark_mode()
             elif inp_menu =="ok":

@@ -1,11 +1,13 @@
 import pygame
 class Button:
-    def __init__(self,text, width=60, height=60):
+    def __init__(self,text, width=60, height=60, pos_x=0, pos_y=0):
         self.text = text
         self.width = width
         self.height = height
         self.font = pygame.font.SysFont("Arial", 10)
         self.rect = None
+        self.pos_x = pos_x
+        self.pos_y = pos_y
 
 
     def draw(self, screen, x, y):
