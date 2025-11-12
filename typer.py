@@ -12,7 +12,7 @@ def get_buttons(screen,state='d'):
     
     HEIGHT=50
     WIDTH=50
-    GAP=20
+    GAP=10
 
     
     on_button = Button(KB.ON, HEIGHT,WIDTH, 50, START_POINT+50)
@@ -67,7 +67,8 @@ def get_buttons(screen,state='d'):
     
     keyboard_layout_default = [
         [KB.SEVEN, KB.EIGHT, KB.NINE, KB.BACKSPACE, KB.ALL_CLEAR],
-        [KB.FOUR, KB.FIVE, KB.SIX, KB.MULTIPLY, KB.MINUS],
+        [KB.FOUR, KB.FIVE, KB.SIX, KB.PLUS, KB.SLASH],
+        [KB.ONE, KB.TWO, KB.THREE, KB.MULTIPLY, KB.MINUS],
         [KB.DECIMAL, KB.ZERO,KB.COMMA,KB.ANSWER, KB.EXE],
     ]
     keyboard_layout_alpha = [

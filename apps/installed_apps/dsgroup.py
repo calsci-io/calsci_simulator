@@ -11,7 +11,7 @@ from dynamic_stuff.dynamic_menu_buffer_uploader import uploader
 from dynamic_stuff.dynamic_menu_buffer_data_generator import data_generator
 import time
 import json
-from data_modules.object_handler import nav, keypad_state_manager, typer
+from data_modules.object_handler import nav, keypad_state_manager, typer, display
 from data_modules.object_handler import current_app
 # from process_modules import boot_up_data_update
 from data_modules.object_handler import app

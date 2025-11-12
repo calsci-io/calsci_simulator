@@ -1,10 +1,10 @@
-from data_modules.object_handler import app
+from data_modules.object_handler import app, keypad_state_manager_reset
 import pygame
 
 def app_runner():
     # name=app.get_app_name()
     # group=app.get_group_name()
-
+    keypad_state_manager_reset()
     if (app.get_app_name() == None) or (app.get_group_name() == None):
         app.set_app_name("home")
         app.set_group_name("root")

@@ -50,7 +50,7 @@ def calculate():
 
             elif x == "alpha" or x == "beta":                        
                 keypad_state_manager(x=x)
-                typer.change_keymaps(x)
+                # typer.change_keymaps(x)
                 text.update_buffer("")
 
             # elif x == "off":

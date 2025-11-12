@@ -75,7 +75,9 @@ class Typer:
                 self.keypad.key_change(KM.BETA)
             
             self.buttons =get_buttons(screen, self.keypad.state) 
-
+        if key == "d":
+            self.keypad.key_change(KM.DEFAULT)
+            self.buttons =get_buttons(screen, self.keypad.state) 
 # from input_modules.keypad import Keypad
 # from data_modules.keypad_map import Keypad_5X8
 
@@ -144,6 +146,12 @@ builtins.app=App()
 apps_installer=Apps()
 builtins.apps_installer=apps_installer
 
+a_b={
+    "a":"alpha",
+    "b":"beta",
+    "d":"default"
+}
+
 def keypad_state_manager(x):
     if keypad.state == "a" and x[0] == "a":
         keypad.key_change(state="d")
@@ -154,10 +162,13 @@ def keypad_state_manager(x):
     else:
         keypad.key_change(state=x[0])
         nav.state_change(state=x[0])
+    typer.change_keymaps(x)
 
 def keypad_state_manager_reset():
     keypad.key_change(state="d")
     nav.state_change(state="d")
+    # typer.change_keymaps(a_b[keypad.state])
+    keypad_state_manager(keypad.state)
 
 # def test_deep_sleep_awake():
 #     # -------- Hold GPIO32 HIGH --------
