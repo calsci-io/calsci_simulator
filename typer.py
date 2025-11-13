@@ -3,8 +3,8 @@ from constants import KeyButtons as KB, KeypadMode as KM
 
 
 def get_buttons(screen, state="d"):
-    START_POINT = 305
-    HEIGHT, WIDTH = 50, 50
+    START_POINT = 225
+    HEIGHT, WIDTH = 40, 40
     GAP_X, GAP_Y = 10, 10  # control horizontal & vertical spacing globally
 
     buttons = []
@@ -18,11 +18,11 @@ def get_buttons(screen, state="d"):
 
     # --- Navigation Buttons ---
     nav_buttons = [
-        Button(KB.OK, 50, 50, 450, 425),
-        Button(KB.NAV_U, 50, 25, 450, 425 - (25 + GAP_Y)),
-        Button(KB.NAV_D, 50, 25, 450, 425 + 50 + GAP_Y),
-        Button(KB.NAV_L, 40, 50, 450 - (65 + GAP_X // 2), 425),
-        Button(KB.NAV_R, 40, 50, 450 + (65 + GAP_X // 2), 425),
+        Button(KB.OK, 50, 50, 300, 325),
+        Button(KB.NAV_U, 50, 25, 300, 325 - (25 + GAP_Y)),
+        Button(KB.NAV_D, 50, 25, 300, 325 + 50 + GAP_Y),
+        Button(KB.NAV_L, 40, 50, 300 - (65 + GAP_X // 2), 325),
+        Button(KB.NAV_R, 40, 50, 300 + (65 + GAP_X // 2), 325),
     ]
     buttons.extend(nav_buttons)
 

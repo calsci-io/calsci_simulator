@@ -3,13 +3,13 @@ from pygame.locals import *
 
 from display.characters import Characters
 
-FPS = 30 # frames per second, the general speed of the program
-BOXSIZE = 5 # size of box height & width in pixels
+FPS = 60 # frames per second, the general speed of the program
+BOXSIZE = 3 # size of box height & width in pixels
 GAPSIZE = 0 # size of gap between boxes in pixels
 BOARDWIDTH = 128 # number of columns of icons
 BOARDHEIGHT = 64 # number of rows of icons
 
-MARGIN=25
+MARGIN=70
 
 WINDOWWIDTH = BOARDWIDTH*(BOXSIZE+GAPSIZE) + MARGIN # size of window's width in pixels
 WINDOWHEIGHT = BOARDHEIGHT*(BOXSIZE+GAPSIZE) + MARGIN# size of windows' height in pixels

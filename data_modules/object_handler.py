@@ -15,7 +15,7 @@ from components import Button
 from constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 
-screen = pygame.display.set_mode((670, 1001))
+screen = pygame.display.set_mode((450, 800))
 pygame.display.set_caption("Keyboard")
 clock = pygame.time.Clock()
 keypad = Keypad()
