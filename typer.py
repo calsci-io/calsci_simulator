@@ -1,8 +1,10 @@
 from components import Button
 from constants import KeyButtons as KB, KeypadMode as KM
+import pygame
 
 
-def get_buttons(screen, state="d"):
+
+def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
     START_POINT = 225
     HEIGHT, WIDTH = 40, 40
     GAP_X, GAP_Y = 10, 10  # control horizontal & vertical spacing globally
@@ -11,18 +13,28 @@ def get_buttons(screen, state="d"):
 
     def create_row(row, start_x, start_y, gap_x):
         """Helper: creates buttons in a row with given gap."""
-        return [
-            Button(kb, HEIGHT, WIDTH, start_x + i * (WIDTH + gap_x), start_y)
-            for i, kb in enumerate(row)
-        ]
+        buttons = []
+        for i, kb in enumerate(row):
+            enabled = False
+            value = KB.get_symbol(kb)
+            if (kb==KB.ALPHA and alpha) or (kb==KB.BETA and beta) or (kb==KB.CAPS and caps):
+                enabled = True 
+            if caps and kb in [KB.A, KB.B, KB.C, KB.D, KB.E, KB.F, KB.G, KB.H, KB.I, KB.J, KB.K, KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q, KB.R, KB.S, KB.T, KB.U, KB.V, KB.W, KB.X, KB.Y, KB.Z]:
+                value = KB.get_symbol(kb).capitalize()
+            
+            buttons.append(Button(value, HEIGHT, WIDTH, start_x + i * (WIDTH + gap_x), start_y, enabled))
 
+
+        return buttons
+
+    print(alpha, beta)
     # --- Navigation Buttons ---
     nav_buttons = [
-        Button(KB.OK, 50, 50, 300, 325),
-        Button(KB.NAV_U, 50, 25, 300, 325 - (25 + GAP_Y)),
-        Button(KB.NAV_D, 50, 25, 300, 325 + 50 + GAP_Y),
-        Button(KB.NAV_L, 40, 50, 300 - (65 + GAP_X // 2), 325),
-        Button(KB.NAV_R, 40, 50, 300 + (65 + GAP_X // 2), 325),
+        Button(KB.get_symbol(KB.OK), 50, 50, 300, 325),
+        Button(KB.get_symbol(KB.NAV_U), 50, 25, 300, 325 - (25 + GAP_Y)),
+        Button(KB.get_symbol(KB.NAV_D), 50, 25, 300, 325 + 50 + GAP_Y),
+        Button(KB.get_symbol(KB.NAV_L), 40, 50, 300 - (40 + GAP_X // 2), 325),
+        Button(KB.get_symbol(KB.NAV_R), 40, 50, 300 + (50 + GAP_X // 2), 325),
     ]
     buttons.extend(nav_buttons)
 
@@ -41,7 +53,7 @@ def get_buttons(screen, state="d"):
     section_1_layouts = {
         KM.DEFAULT: [
             [KB.TOOLBOX, KB.MODULE, KB.BLUETOOTH, KB.SIN, KB.COS, KB.TAN],
-            [KB.DIFF, KB.INGN, KB.PI, KB.EULER_CONSTANT, KB.SUMMATION, KB.DIVIDE],
+            [KB.DIFF, KB.INGN, KB.PI, KB.EULER_CONSTANT, KB.SUMMATION, KB.FRACTION],
             [KB.LN, KB.LOG, KB.POW, KB.SQRT, KB.POW_2, KB.S_D],
         ],
         KM.ALPHA: [
@@ -72,7 +84,7 @@ def get_buttons(screen, state="d"):
         KM.BETA: [
             [KB.LEFT_BRACKET, KB.RIGHT_BRACKET, KB.PERCENT, KB.BACKSPACE, KB.ALL_CLEAR],
             [KB.LEFT_BRACE, KB.RIGHT_BRACE, KB.COLON, KB.PLUS, KB.SLASH],
-            [KB.LEFT_BRACE, KB.RIGHT_BRACE, KB.COLON, KB.MULTIPLY, KB.MINUS],
+            [KB.LEFT_PAREN, KB.RIGHT_PAREN, KB.COLON, KB.MULTIPLY, KB.MINUS],
             [KB.AT, KB.QUESTION, KB.ESCAPED_QUOTE, KB.ANSWER, KB.EXE],
         ],
     }

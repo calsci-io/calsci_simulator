@@ -40,6 +40,9 @@ class Typer:
         self.keypad = keypad
         self.keypad_map = keypad_map
         self.buttons = get_buttons(screen) 
+        self.is_alpha = False
+        self.is_beta = False
+        self.is_caps = False 
 
     def start_typing(self):
         for event in pygame.event.get():
@@ -55,29 +58,49 @@ class Typer:
                         key = button.get_text()
                         print("key pressed:", key)
                         pygame.display.update()
-                        return key
+                        if key == "AC":
+                            return key
+                        val = KB.get_char(key)
+                        if val == "caps":
+                            self.is_caps = not self.is_caps
+                            self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+
+                        if self.is_caps and val in [KB.A, KB.B, KB.C, KB.D, KB.E, KB.F, KB.G, KB.H, KB.I, KB.J, KB.K, KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q, KB.R, KB.S, KB.T, KB.U, KB.V, KB.W, KB.X, KB.Y, KB.Z]:
+                            val = val.upper()
+                        
+                        print(val)
+                        return val 
         return ""
 
     def change_keymaps(self, key):
         if key == KB.ALPHA:
             if self.keypad.state == KM.ALPHA:
                 self.keypad.key_change(KM.DEFAULT)
+                self.is_alpha = False
             else:
                 self.keypad.key_change(KM.ALPHA)
-            print(self.keypad.state) 
-            self.buttons = get_buttons(screen,self.keypad.state)
+                self.is_alpha = True
+                self.is_beta = False
+                self.is_caps = False
             
         
         if key == KB.BETA:
             if self.keypad.state == KM.BETA:
                 self.keypad.key_change(KM.DEFAULT)
+                self.is_beta = False
             else:
                 self.keypad.key_change(KM.BETA)
+                self.is_beta = True
+                self.is_alpha = False
+                self.is_caps = False
             
-            self.buttons =get_buttons(screen, self.keypad.state) 
         if key == "d":
             self.keypad.key_change(KM.DEFAULT)
             self.buttons =get_buttons(screen, self.keypad.state) 
+            self.is_alpha = False
+            self.is_beta = False
+            self.is_caps = False
+        self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps) 
 # from input_modules.keypad import Keypad
 # from data_modules.keypad_map import Keypad_5X8
 

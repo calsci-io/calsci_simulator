@@ -1,4 +1,144 @@
+
+
 class KeyButtons:
+    
+    KEY_MAP = {
+    "RST": "RST",
+    "BT": "BT",
+    "OK": "OK",
+    "ON": "ON",
+
+    "NAV_D": "↓",
+    "NAV_U": "↑",
+    "NAV_L": "←",
+    "NAV_R": "→",
+
+    "BETA": "β",
+    "ALPHA": "α",
+
+    "HOME": "⌂",
+    "WIFI": "📶",
+    "TAB": "↹",
+    "BACKLIGHT": "🔆",
+    "BACK": "↩",
+    "TOOLBOX": "🧰",
+
+    "DIFF(": "d/dx",
+    "LN": "ln",
+    "MODULE": "|x|",
+    "BLUETOOTH": "🅱",
+
+    "SIN(": "sin",
+    "COS": "cos",
+    "TAN": "tan",
+
+    "ASIN(": "sin⁻¹",
+    "ACOS(": "cos⁻¹",
+    "ATAN(": "tan⁻¹",
+
+    "INGN(": "∫",
+    "PI": "π",
+    "EULER_CONSTANT": "e",
+
+    "SUMMATION": "∑",
+    "FRACTION": "a⁄b",
+    "LOG": "log",
+
+    "POW(": "xʸ",
+    "POW( ,0.5)": "√",
+    "POW( ,2)": "x²",
+
+    "S_D": "S→D",
+
+    "SEVEN": "7",
+    "EIGHT": "8",
+    "NINE": "9",
+    "NAV_B": "⌫",
+    "AC": "AC",
+
+    "FOUR": "4",
+    "FIVE": "5",
+    "SIX": "6",
+    "MULTIPLY": "×",
+    "DIVIDE": "÷",
+
+    "ONE": "1",
+    "TWO": "2",
+    "THREE": "3",
+    "PLUS": "+",
+    "MINUS": "−",
+
+    "DECIMAL": ".",
+    "ZERO": "0",
+    "COMMA": ",",
+
+    "ANSWER": "ANS",
+    "EXE": "EXE",
+
+    "CAPS": "⇪",
+
+    "A": "a", "B": "b", "C": "c", "D": "d", "E": "e", "F": "f",
+    "G": "g", "H": "h", "I": "i", "J": "j", "K": "k", "L": "l",
+    "M": "m", "N": "n", "O": "o", "P": "p", "Q": "q", "R": "r",
+    "S": "s", "T": "t", "U": "u", "V": "v", "W": "w", "X": "x",
+    "Y": "y", "Z": "z",
+
+    "OFF": "off",
+
+    "AND": "&",
+    "EQUAL": "=",
+    "UNDO": "↺",
+
+    "DOLLAR": "$",
+    "PERCENT": "%",
+    "SINGLE_QUOTE": "'",
+    "CARET": "^",
+    "PIPE": "|",
+    "BACKSLASH": "\\",
+
+    "COPY": "⧉",
+    "PASTE": "📋",
+
+    "TILDE": "~",
+    "EXCLAMATION": "!",
+    "LESS_THAN": "<",
+    "GREATER_THAN": ">",
+
+    "LEFT_BRACKET": "[",
+    "RIGHT_BRACKET": "]",
+    "LEFT_BRACE": "{",
+    "RIGHT_BRACE": "}",
+
+    "COLON": ":",
+    "ASTERISK": "×",
+    "SLASH": "/",
+    "LEFT_PAREN": "(",
+    "RIGHT_PAREN": ")",
+    "SEMICOLON": ";",
+
+    "AT": "@",
+    "BACKTICK": "`",
+    "QUESTION": "?",
+
+    "ESCAPED_QUOTE": "\"",
+
+    "SHOT": "◉",
+    "SPACE": " "
+    }
+    @classmethod
+    def get_symbol(cls, char):
+        return cls.KEY_MAP.get(char.upper(), char)
+    
+    @classmethod
+    def get_char(cls, symbol):
+        cls.create_reverse_key_map()
+        print(cls.REVERSE_KEY_MAP.get(symbol, symbol).lower())
+        return cls.REVERSE_KEY_MAP.get(symbol, symbol).lower()
+
+    @classmethod
+    def create_reverse_key_map(cls):
+        cls.REVERSE_KEY_MAP = {v: k for k, v in cls.KEY_MAP.items()}
+
     RST="rst"
     BT="bt"
     OK="ok"
