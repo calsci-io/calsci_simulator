@@ -60,13 +60,21 @@ class Typer:
                         pygame.display.update()
                         if key == "AC":
                             return key
+                        
+
                         val = KB.get_char(key)
-                        if val == "caps":
-                            self.is_caps = not self.is_caps
-                            self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+                        if key in [KB.ONE, KB.ZERO, KB.TWO, KB.THREE, KB.FOUR, KB.FIVE, KB.SIX, KB.SEVEN, KB.EIGHT, KB.NINE]:
+                            val = key
 
                         if self.is_caps and val in [KB.A, KB.B, KB.C, KB.D, KB.E, KB.F, KB.G, KB.H, KB.I, KB.J, KB.K, KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q, KB.R, KB.S, KB.T, KB.U, KB.V, KB.W, KB.X, KB.Y, KB.Z]:
                             val = val.upper()
+
+                        if val == "caps":
+                            self.is_caps = not self.is_caps
+                            self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+                            val = ""
+
+                        
                         
                         print(val)
                         return val 

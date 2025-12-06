@@ -21,6 +21,7 @@ def calculate():
             x = typer.start_typing()
             # print(f"x = {x}")
             if x=="":
+                text_refresh.refresh(state=nav.current_state())
                 continue
             if x == "back":
                 current_app[0]="home"

@@ -16,6 +16,7 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
         buttons = []
         for i, kb in enumerate(row):
             enabled = False
+            
             value = KB.get_symbol(kb)
             if (kb==KB.ALPHA and alpha) or (kb==KB.BETA and beta) or (kb==KB.CAPS and caps):
                 enabled = True 
