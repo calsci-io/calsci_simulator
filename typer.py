@@ -1,11 +1,11 @@
-from components import Button
+from components import Button, OtherButton
 from constants import KeyButtons as KB, KeypadMode as KM
 import pygame
 
 
 
 def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
-    START_POINT = 225
+    START_POINT = 200
     HEIGHT, WIDTH = 40, 40
     GAP_X, GAP_Y = 10, 10  # control horizontal & vertical spacing globally
 
@@ -27,15 +27,16 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
 
 
         return buttons
-
-    print(alpha, beta)
+    
+    NAV_START_POINT = 300
+    
     # --- Navigation Buttons ---
     nav_buttons = [
-        Button(KB.get_symbol(KB.OK), 50, 50, 300, 325),
-        Button(KB.get_symbol(KB.NAV_U), 50, 25, 300, 325 - (25 + GAP_Y)),
-        Button(KB.get_symbol(KB.NAV_D), 50, 25, 300, 325 + 50 + GAP_Y),
-        Button(KB.get_symbol(KB.NAV_L), 40, 50, 300 - (40 + GAP_X // 2), 325),
-        Button(KB.get_symbol(KB.NAV_R), 40, 50, 300 + (50 + GAP_X // 2), 325),
+        Button(KB.get_symbol(KB.OK), 50, 50, NAV_START_POINT, NAV_START_POINT),
+        Button(KB.get_symbol(KB.NAV_U), 50, 25, NAV_START_POINT, NAV_START_POINT - (25 + GAP_Y)),
+        Button(KB.get_symbol(KB.NAV_D), 50, 25, NAV_START_POINT, NAV_START_POINT + 50 + GAP_Y),
+        Button(KB.get_symbol(KB.NAV_L), 40, 50, NAV_START_POINT - (40 + GAP_X // 2), NAV_START_POINT),
+        Button(KB.get_symbol(KB.NAV_R), 40, 50, NAV_START_POINT + (50 + GAP_X // 2), NAV_START_POINT),
     ]
     buttons.extend(nav_buttons)
 
@@ -51,59 +52,108 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
         buttons.extend(create_row(row, 50, y, GAP_X))
 
     # --- Keyboard Layouts ---
-    section_1_layouts = {
-        KM.DEFAULT: [
-            [KB.TOOLBOX, KB.MODULE, KB.BLUETOOTH, KB.SIN, KB.COS, KB.TAN],
-            [KB.DIFF, KB.INGN, KB.PI, KB.EULER_CONSTANT, KB.SUMMATION, KB.FRACTION],
-            [KB.LN, KB.LOG, KB.POW, KB.SQRT, KB.POW_2, KB.S_D],
-        ],
-        KM.ALPHA: [
-            [KB.CAPS, KB.A, KB.B, KB.C, KB.D, KB.E],
-            [KB.F, KB.G, KB.H, KB.I, KB.J, KB.K],
-            [KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q],
-        ],
-        KM.BETA: [
-            [KB.UNDO, KB.COPY, KB.PASTE, KB.ASIN, KB.ACOS, KB.ATAN],
-            [KB.EQUAL, KB.AND, KB.BACKTICK, KB.ESCAPED_QUOTE, KB.SINGLE_QUOTE, KB.SLASH],
-            [KB.DOLLAR, KB.CARET, KB.TILDE, KB.EXCLAMATION, KB.LESS_THAN, KB.GREATER_THAN],
-        ],
-    }
-
-    section_2_layouts = {
-        KM.DEFAULT: [
-            [KB.SEVEN, KB.EIGHT, KB.NINE, KB.BACKSPACE, KB.ALL_CLEAR],
-            [KB.FOUR, KB.FIVE, KB.SIX, KB.PLUS, KB.SLASH],
-            [KB.ONE, KB.TWO, KB.THREE, KB.MULTIPLY, KB.MINUS],
-            [KB.DECIMAL, KB.ZERO, KB.COMMA, KB.ANSWER, KB.EXE],
-        ],
-        KM.ALPHA: [
-            [KB.R, KB.S, KB.T, KB.BACKSPACE, KB.ALL_CLEAR],
-            [KB.U, KB.V, KB.W, KB.PLUS, KB.SLASH],
-            [KB.X, KB.Y, KB.Z, KB.MULTIPLY, KB.MINUS],
-            [KB.SPACE, KB.OFF, KB.TAB, KB.ANSWER, KB.EXE],
-        ],
-        KM.BETA: [
-            [KB.LEFT_BRACKET, KB.RIGHT_BRACKET, KB.PERCENT, KB.BACKSPACE, KB.ALL_CLEAR],
-            [KB.LEFT_BRACE, KB.RIGHT_BRACE, KB.COLON, KB.PLUS, KB.SLASH],
-            [KB.LEFT_PAREN, KB.RIGHT_PAREN, KB.COLON, KB.MULTIPLY, KB.MINUS],
-            [KB.AT, KB.QUESTION, KB.ESCAPED_QUOTE, KB.ANSWER, KB.EXE],
-        ],
-    }
-
-    # --- Section 1 Buttons ---
-    section_1_y_start = START_POINT + 4 * (HEIGHT + GAP_Y)  # below system buttons
-    for i, row in enumerate(section_1_layouts[state]):
-        y = section_1_y_start + i * (HEIGHT + GAP_Y)
-        buttons.extend(create_row(row, 50, y, GAP_X))
-
-    # --- Section 2 Buttons ---
-    section_2_y_start = section_1_y_start +  3.25 * (HEIGHT + GAP_Y)
-    for i, row in enumerate(section_2_layouts[state]):
-        y = section_2_y_start + i * (HEIGHT + GAP_Y)
-        buttons.extend(create_row(row, 50, y, GAP_X + 20))  # slightly wider layout
+    
 
     # --- Draw all buttons ---
     for button in buttons:
         button.draw(screen)
 
+    return buttons
+
+
+def get_other_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
+    START_POINT = 140
+    HEIGHT, WIDTH = 50, 50
+    GAP_X, GAP_Y = 5, 20  # control horizontal & vertical spacing globally
+    buttons = []
+    section_1_layouts = [
+            [(KB.TOOLBOX,KB.CAPS,KB.UNDO), 
+             (KB.MODULE,KB.A,KB.COPY), 
+             (KB.BLUETOOTH,KB.B,KB.PASTE), 
+             (KB.SIN,KB.C,KB.ASIN),
+             (KB.COS,KB.D,KB.ACOS),
+             (KB.TAN, KB.E,KB.ATAN)],
+
+            [(KB.DIFF,KB.F, KB.EQUAL), 
+             (KB.INGN, KB.G, KB.AND), 
+             (KB.PI, KB.H, KB.BACKTICK), 
+             (KB.EULER_CONSTANT, KB.I, KB.ESCAPED_QUOTE),
+             (KB.SUMMATION, KB.J, KB.SINGLE_QUOTE) , 
+             (KB.FRACTION, KB.K, KB.SLASH)],
+
+            [(KB.LN, KB.L, KB.DOLLAR), 
+             (KB.LOG,KB.M, KB.CARET), 
+             (KB.POW, KB.N, KB.TILDE), 
+             (KB.SQRT, KB.O, KB.EXCLAMATION), 
+             (KB.POW_2, KB.P, KB.LESS_THAN), 
+             (KB.S_D, KB.Q, KB.GREATER_THAN)],
+        ]
+
+    section_2_layouts = [
+            [(KB.SEVEN, KB.R, KB.LEFT_BRACKET), 
+             (KB.EIGHT, KB.S, KB.RIGHT_BRACKET), 
+             (KB.NINE, KB.T, KB.PERCENT), 
+             (KB.BACKSPACE, "", ""), 
+             (KB.ALL_CLEAR, "", "")],
+            
+            [(KB.FOUR, KB.U, KB.LEFT_BRACE), 
+             (KB.FIVE, KB.V, KB.RIGHT_BRACE), 
+             (KB.SIX, KB.W, KB.COLON), 
+             (KB.PLUS, "", ""), 
+             (KB.SLASH, "", "")],
+
+            [(KB.ONE, KB.X, KB.LEFT_PAREN), 
+             (KB.TWO, KB.Y, KB.RIGHT_PAREN), 
+             (KB.THREE, KB.Z, KB.COLON), 
+             (KB.MULTIPLY, "", ""), 
+             (KB.MINUS, "", "")],
+            
+            [(KB.DECIMAL, KB.SPACE, KB.AT), 
+             (KB.ZERO, KB.OFF, KB.QUESTION), 
+             (KB.COMMA, KB.TAB, KB.ESCAPED_QUOTE), 
+             (KB.ANSWER, "", ""), 
+             (KB.EXE, "", "")],
+        ]
+    
+    def create_row(row, start_x, start_y, gap_x):
+        """Helper: creates buttons in a row with given gap."""
+
+        buttons = []
+        for i, kb in enumerate(row):
+            enabled = False
+            # print(kb)
+            default, alpha, beta = kb
+            default = KB.get_symbol(default)
+            alpha = KB.get_symbol(alpha)
+            beta = KB.get_symbol(beta)
+            
+            if (kb==KB.ALPHA and alpha) or (kb==KB.BETA and beta) or (kb==KB.CAPS and caps):
+                enabled = True 
+            if caps:
+                alpha = KB.get_symbol(alpha).capitalize()
+            
+            buttons.append(OtherButton(text=default, alpha_text=alpha, beta_text=beta, height=HEIGHT, width=WIDTH, pos_x=start_x + i * (WIDTH + gap_x), pos_y=start_y, enabled=enabled))
+
+
+        return buttons
+
+
+    # --- Section 1 Buttons ---
+    section_1_y_start = START_POINT + 4 * (HEIGHT + GAP_Y)  # below system buttons
+    for i, row in enumerate(section_1_layouts):
+        y = section_1_y_start + i * (HEIGHT + GAP_Y)
+        buttons.extend(create_row(row, 50, y, GAP_X))
+
+        
+
+    # --- Section 2 Buttons ---
+    section_2_y_start = section_1_y_start +  3.25 * (HEIGHT + GAP_Y)
+    for i, row in enumerate(section_2_layouts):
+        y = section_2_y_start + i * (HEIGHT + GAP_Y)
+        buttons.extend(create_row(row, 50, y, GAP_X + 20))  # slightly wider layout
+
+
+    for button in buttons:
+        button.draw(screen, state=state)
+    
     return buttons

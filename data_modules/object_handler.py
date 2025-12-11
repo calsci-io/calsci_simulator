@@ -15,14 +15,14 @@ from components import Button
 from constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 
-screen = pygame.display.set_mode((450, 800))
+screen = pygame.display.set_mode((450, 950))
 pygame.display.set_caption("Keyboard")
 clock = pygame.time.Clock()
 keypad = Keypad()
 
 screen.fill((240, 240, 240))
 
-from typer import get_buttons
+from typer import get_buttons, get_other_buttons
 
 # def draw_buttons():
 #     buttons = []
@@ -39,7 +39,7 @@ class Typer:
     def __init__(self,keypad, keypad_map):
         self.keypad = keypad
         self.keypad_map = keypad_map
-        self.buttons = get_buttons(screen) 
+        self.buttons = get_buttons(screen).extend(get_other_buttons(screen))
         self.is_alpha = False
         self.is_beta = False
         self.is_caps = False 
@@ -52,16 +52,18 @@ class Typer:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button != 1:
                     continue
+                
                 pos = pygame.mouse.get_pos()
                 for button in self.buttons:
                     if button.is_clicked(pos):
-                        key = button.get_text()
+                        print("testing")
+                        key = button.get_text(self.keypad.state)
                         print("key pressed:", key)
                         pygame.display.update()
                         if key == "AC":
                             return key
                         
-
+                        
                         val = KB.get_char(key)
                         if key in [KB.ONE, KB.ZERO, KB.TWO, KB.THREE, KB.FOUR, KB.FIVE, KB.SIX, KB.SEVEN, KB.EIGHT, KB.NINE]:
                             val = key
@@ -71,12 +73,16 @@ class Typer:
 
                         if val == "caps":
                             self.is_caps = not self.is_caps
-                            self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+                            if self.is_caps:
+                                nav.state_change("a", caps=True)
+                            else:
+                                nav.state_change("a", caps=False)
+                            self.buttons=get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+                            self.buttons.extend(get_other_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps))
                             val = ""
 
-                        
-                        
-                        print(val)
+
+                                                                  
                         return val 
         return ""
 
@@ -104,11 +110,12 @@ class Typer:
             
         if key == "d":
             self.keypad.key_change(KM.DEFAULT)
-            self.buttons =get_buttons(screen, self.keypad.state) 
+            # self.buttons =get_buttons(screen, self.keypad.state) 
             self.is_alpha = False
             self.is_beta = False
             self.is_caps = False
-        self.buttons =get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps) 
+        self.buttons = get_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps)
+        self.buttons.extend(get_other_buttons(screen=screen, state=self.keypad.state, alpha=self.is_alpha, beta=self.is_beta, caps=self.is_caps))
 # from input_modules.keypad import Keypad
 # from data_modules.keypad_map import Keypad_5X8
 

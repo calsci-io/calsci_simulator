@@ -96,7 +96,7 @@ class KeyButtons:
     "PIPE": "|",
     "BACKSLASH": "\\",
 
-    "COPY": "⧉",
+    "COPY": "❏",
     "PASTE": "📋",
 
     "TILDE": "~",

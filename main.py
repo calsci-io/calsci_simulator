@@ -12,7 +12,8 @@ from display.text_uploader import TextUploader
 from data_modules.object_handler import keypad_state_manager_reset, screen, keypad, Typer, clock
 from process_modules.app_runner import app_runner
 
-
+# screen = pygame.display.set_mode((450, 800))
+# screen.fill((240, 240, 240))
 display = Display(screen=screen, chrs=Characters())
 
 typer = Typer(keypad=keypad, keypad_map=None )
@@ -21,15 +22,19 @@ text = TextBuffer()
 text_uploader = TextUploader(display, chrs=Characters(), t_b=text)
 text_uploader.refresh()
 text.all_clear()
+# main_font = pygame.font.Font("DejaVuSans.ttf", 14)
+# fallback_font = pygame.font.Font("notosymbols2.ttf", 14)
+# emoji_font = pygame.font.Font("notoemoji.ttf", 14)
+# clock = pygame.time.Clock()
 while True:    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             quit()
         
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button != 1:
-                continue
+    #     if event.type == pygame.MOUSEBUTTONDOWN:
+    #         if event.button != 1:
+    #             continue
             
             # x = typer.start_typing()
             
@@ -57,6 +62,32 @@ while True:
     pygame.display.update()
     keypad_state_manager_reset()
     app_runner()
+
+    # button_posx = 20
+    # button_posy = 20
+
+    # width = 40
+    # height = 40
+    # gap = 2
+
+    # text = main_font.render("A", True, (20,20,20), (240,240,240))
+    # rect_text = text.get_rect()
+    # rect_text.topleft = (button_posx, button_posy-text.get_height()-gap)
+    # screen.blit(text,rect_text)
+
+    # text = main_font.render("B", True, (20,20,20), (240,240,240))
+    # rect_text = text.get_rect()
+    # rect_text.topleft = (button_posx+width-text.get_width(), button_posy-text.get_height()-gap)
+    # screen.blit(text,rect_text)
+
+
+    # rect = pygame.Rect(button_posx,button_posy,width,height)
+    # pygame.draw.rect(screen, (255,255,255), rect)
+    # text = main_font.render("K", True, (20,20,20), (255,255,255))
+    # rect_text = text.get_rect()
+    # rect_text.topleft = (button_posx+width//2-text.get_width()//2, button_posy+height//2-text.get_height()//2)
+
+    # screen.blit(text,rect_text)
 
 
     pygame.display.update()
