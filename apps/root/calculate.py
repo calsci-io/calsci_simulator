@@ -41,8 +41,9 @@ def calculate():
                 task=None
 
             if x == "ans" and text.text_buffer[0] != "𖤓":
+                # print(text.text_buffer[:text.text_buffer.find("𖤓")])
                 try:
-                    res = str(eval(text.text_buffer[:text.text_buffer_nospace]))
+                    res = str(eval(text.text_buffer[:text.text_buffer.find("𖤓")]))
                 except Exception as e:
                     res = "Invalid Input"
                 text.all_clear()

@@ -56,7 +56,7 @@ class Typer:
                 pos = pygame.mouse.get_pos()
                 for button in self.buttons:
                     if button.is_clicked(pos):
-                        print("testing")
+                        
                         key = button.get_text(self.keypad.state)
                         print("key pressed:", key)
                         pygame.display.update()
