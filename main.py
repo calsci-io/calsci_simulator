@@ -12,6 +12,8 @@ from display.text_uploader import TextUploader
 from data_modules.object_handler import keypad_state_manager_reset, screen, keypad, Typer, clock
 from process_modules.app_runner import app_runner
 
+# import watcher
+
 # screen = pygame.display.set_mode((450, 800))
 # screen.fill((240, 240, 240))
 display = Display(screen=screen, chrs=Characters())

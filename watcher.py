@@ -6,7 +6,6 @@ import signal
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-
 COMMAND = ["python", "main.py"]   # The application to run
 WATCH_EXT = ".py"
 

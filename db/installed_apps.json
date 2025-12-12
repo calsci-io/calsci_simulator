@@ -19,6 +19,10 @@
         "5": {
             "app_name": "test_app",
             "group_name": "installed_apps"
+        },
+        "6": {
+            "app_name": "ir_remote",
+            "group_name": "installed_apps"
         }
     }
 }
