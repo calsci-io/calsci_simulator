@@ -15,6 +15,7 @@ def add_2_nums(db={}):
 
     while True:
         inp = typer.start_typing()
+        print(type(inp))
         if inp == "back":
             app.set_app_name("installed_apps")
             app.set_group_name("root")

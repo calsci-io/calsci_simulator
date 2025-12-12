@@ -40,7 +40,7 @@ class Textbuffer:
         # Calculate the menu_buffer only once
         self.menu_buffer_size = self.buffer_length + remaining_spaces
         # self.menu_buffer = list(range(self.menu_buffer_size))
-        # Ensure text_buffer has enough chara-1cters to fill display buffer
+        # Ensure text_buffer has enough characters to fill display buffer
         total_buffer_size = self.rows * self.cols
         if self.menu_buffer_size < total_buffer_size:
             self.extra_spaces = total_buffer_size - self.menu_buffer_size
@@ -56,7 +56,7 @@ class Textbuffer:
             + total_buffer_size
         ]
         new_rows_list = []
-        
+
         for i in range(self.rows):
             rownew = self.text_buffer[
                 self.display_buffer[self.cols * i] : self.display_buffer[
@@ -176,8 +176,7 @@ class Textbuffer:
                     - ((self.rows - 1) * self.cols)
                 )
                 self.refresh_area = (0, self.rows * self.cols)
-        
-        self.text_buffer = self.text_buffer[0 : self.text_buffer_nospace]+"𖤓"
+        self.text_buffer = self.text_buffer[0 : self.text_buffer_nospace] + "𖤓"
 
     def all_clear(self):
         self.refresh_area = (0, self.rows * self.cols)

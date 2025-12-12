@@ -42,10 +42,14 @@ class Typer:
         self.buttons = get_buttons(screen).extend(get_other_buttons(screen))
         self.is_alpha = False
         self.is_beta = False
-        self.is_caps = False 
+        self.is_caps = False
+        
 
     def start_typing(self):
-        for event in pygame.event.get():
+        # event = pygame.event.wait()
+        waiting = True
+        while waiting:
+            event = pygame.event.wait()
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()

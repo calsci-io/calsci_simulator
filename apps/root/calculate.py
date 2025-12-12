@@ -1,6 +1,6 @@
-import time  # type:ignore
+# import utime as time  # type:ignore
 from math import *
-# # import machine
+import machine
 from data_modules.object_handler import display, text, nav, text_refresh, typer, keypad_state_manager, keypad_state_manager_reset, current_app, app
 # from process_modules import boot_up_data_update
 # import uasyncio as asyncio
@@ -10,6 +10,7 @@ from data_modules.object_handler import display, text, nav, text_refresh, typer,
 # from test_thread import run_espnow_message, end_espnow_task
 task=None
 def calculate():
+    global task
     keypad_state_manager_reset()
     display.clear_display()
     text.all_clear()
@@ -17,12 +18,12 @@ def calculate():
     # task=None
     try:
         while True:
-
+            
             x = typer.start_typing()
-            # print(f"x = {x}")
-            if x=="":
-                text_refresh.refresh(state=nav.current_state())
-                continue
+            print(f"x = {x}")
+            # if x=="":
+            #     text_refresh.refresh(state=nav.current_state())
+            #     continue
             if x == "back":
                 current_app[0]="home"
                 current_app[1] = "application_modules"
@@ -41,9 +42,8 @@ def calculate():
                 task=None
 
             if x == "ans" and text.text_buffer[0] != "𖤓":
-                # print(text.text_buffer[:text.text_buffer.find("𖤓")])
                 try:
-                    res = str(eval(text.text_buffer[:text.text_buffer.find("𖤓")]))
+                    res = str(eval(text.text_buffer[:text.text_buffer_nospace]))
                 except Exception as e:
                     res = "Invalid Input"
                 text.all_clear()
@@ -52,12 +52,11 @@ def calculate():
 
             elif x == "alpha" or x == "beta":                        
                 keypad_state_manager(x=x)
-                # typer.change_keymaps(x)
                 text.update_buffer("")
 
-            # elif x == "off":
-                # boot_up_data_update.main()
-                # machine.deepsleep()
+            elif x == "off":
+                boot_up_data_update.main()
+                machine.deepsleep()
 
             elif x != "ans":
                 text.update_buffer(x)
@@ -67,8 +66,7 @@ def calculate():
                 text.all_clear()
 
             text_refresh.refresh(state=nav.current_state())
-            time.sleep(0.2)
+            # time.sleep(0.2)
 
     except Exception as e:
         print(f"Error: {e}")
-        print("")
