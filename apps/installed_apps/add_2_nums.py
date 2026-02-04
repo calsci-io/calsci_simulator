@@ -6,7 +6,7 @@ from data_modules.object_handler import display, nav, typer, keypad_state_manage
 from data_modules.object_handler import app
 
 
-def add_2_nums(db={}):
+def add_2_nums():
     form.input_list={"inp_0": " ", "inp_1": " "}
     form.form_list = ["addition", "1st num", "inp_0", "2nd num", "inp_1"]
     form.update()

@@ -16,7 +16,7 @@ from constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 
 screen = pygame.display.set_mode((450, 950))
-pygame.display.set_caption("Keyboard")
+pygame.display.set_caption("CalSci Simulator")
 clock = pygame.time.Clock()
 keypad = Keypad()
 

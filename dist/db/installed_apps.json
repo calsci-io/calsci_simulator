@@ -1,0 +1,28 @@
+{
+    "_default": {
+        "1": {
+            "app_name": "set",
+            "group_name": "installed_apps"
+        },
+        "2": {
+            "app_name": "add_2_nums",
+            "group_name": "installed_apps"
+        },
+        "3": {
+            "app_name": "ultra_sonic_sensor",
+            "group_name": "installed_apps"
+        },
+        "4": {
+            "app_name": "dsgroup",
+            "group_name": "installed_apps"
+        },
+        "5": {
+            "app_name": "test_app",
+            "group_name": "installed_apps"
+        },
+        "6": {
+            "app_name": "ir_remote",
+            "group_name": "installed_apps"
+        }
+    }
+}

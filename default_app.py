@@ -1,4 +1,5 @@
 app_data={
-    "app_name":"ir_remote",
-    "app_group":"installed_apps"
+    "app_name":"home",
+    "app_group":"root",
+    "app_folder":"ir_remote_apps"
 }

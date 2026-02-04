@@ -1,11 +1,9 @@
 from data_modules.object_handler import keypad_state_manager, display, typer, app
-import time   
+# import time   
 
 def ir_remote():
     display.clear_display()
-
-    menu_list=["last_used_remote", "recently_used", "create_new", "saved", "edit", "delete"]
-
+    menu_list=["last_used_remote", "recently_used", "create_new", "saved", "edit", "delete remote"]
     menu.menu_list=menu_list
     menu.update()
     menu_refresh.refresh()

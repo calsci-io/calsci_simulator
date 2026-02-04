@@ -13,7 +13,11 @@ def calculate():
     global task
     keypad_state_manager_reset()
     display.clear_display()
-    text.all_clear()
+    if text.retain_data == False:
+        text.all_clear()
+    else:
+        text.refresh_area=(0, text.rows * text.cols)
+        text.retain_data = False
     text_refresh.refresh()
     # task=None
     try:
@@ -25,8 +29,8 @@ def calculate():
             #     text_refresh.refresh(state=nav.current_state())
             #     continue
             if x == "back":
-                current_app[0]="home"
-                current_app[1] = "application_modules"
+                app.set_app_name("home")
+                app.set_group_name("root")
                 break
 
             if x == "ok" and task == None:
@@ -58,12 +62,20 @@ def calculate():
                 boot_up_data_update.main()
                 machine.deepsleep()
 
+            elif x == "toolbox":
+                app.set_app_name("toolbox")
+                app.set_group_name("root")
+                break
+
             elif x != "ans":
                 text.update_buffer(x)
+
 
             if text.text_buffer[0] == "𖤓":
                 display.clear_display()
                 text.all_clear()
+            
+            
 
             text_refresh.refresh(state=nav.current_state())
             # time.sleep(0.2)

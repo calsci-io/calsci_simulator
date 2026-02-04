@@ -6,6 +6,34 @@ import signal
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+import pygame
+import os
+# import subprocess
+
+# subprocess.Popen(
+#     ["wmctrl", "-r", ":ACTIVE:", "-e", "0,0,0,960,-1"],
+#     stdout=subprocess.DEVNULL,
+#     stderr=subprocess.DEVNULL
+# )
+
+
+pygame.display.init()
+screen_info = pygame.display.Info()
+screen_width = screen_info.current_w
+screen_height = screen_info.current_h
+
+# 3. Calculate position for the right side
+# Subtract window width from screen width to align to the right edge
+x_pos = screen_width - 535 # 50px padding from the edge
+
+# subprocess.Popen(
+#     [f"wmctrl", "-r", ":ACTIVE:", "-e", "0,0,0,1500,-1"],
+#     stdout=subprocess.DEVNULL,
+#     stderr=subprocess.DEVNULL
+# )
+
+subprocess.call(f"wmctrl -r :ACTIVE: -b remove,maximized_vert,maximized_horz && wmctrl -r :ACTIVE: -b add,maximized_vert && wmctrl -r :ACTIVE: -e 0,0,0,{x_pos},-1", shell=True)
+
 COMMAND = ["python", "main.py"]   # The application to run
 WATCH_EXT = ".py"
 
@@ -14,31 +42,65 @@ DEBOUNCE_DELAY = 0.5
 last_trigger = 0
 
 
+# def start_app():
+#     global running_process
+#     running_process = subprocess.Popen(COMMAND)
+#     print(f"Started application (PID {running_process.pid})")
+
 def start_app():
     global running_process
-    running_process = subprocess.Popen(COMMAND)
+
+    running_process = subprocess.Popen(
+        COMMAND,
+        start_new_session=True,     # Detach from terminal (Linux)
+        stdout=subprocess.DEVNULL,  # Optional: silence output
+        stderr=subprocess.DEVNULL
+    )
+
     print(f"Started application (PID {running_process.pid})")
 
+    # Restore focus to VS Code (X11)
+    try:
+        subprocess.Popen(
+            ["wmctrl", "-a", "Visual Studio Code"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+    except FileNotFoundError:
+        pass
+
+
+# def stop_app():
+#     global running_process
+#     if running_process and running_process.poll() is None:
+#         print(f"Stopping application (PID {running_process.pid})...")
+#         try:
+#             if os.name == "nt":
+#                 running_process.terminate()
+#             else:
+#                 os.kill(running_process.pid, signal.SIGTERM)
+#         except Exception:
+#             pass
+
+#         try:
+#             running_process.wait(timeout=2)
+#         except Exception:
+#             pass
+
+#     running_process = None
 
 def stop_app():
     global running_process
+
     if running_process and running_process.poll() is None:
         print(f"Stopping application (PID {running_process.pid})...")
         try:
-            if os.name == "nt":
-                running_process.terminate()
-            else:
-                os.kill(running_process.pid, signal.SIGTERM)
-        except Exception:
-            pass
-
-        try:
+            os.killpg(os.getpgid(running_process.pid), signal.SIGTERM)
             running_process.wait(timeout=2)
         except Exception:
             pass
 
     running_process = None
-
 
 class ChangeHandler(FileSystemEventHandler):
     def on_modified(self, event):

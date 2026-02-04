@@ -1,7 +1,39 @@
 import pygame
+import os
+# import subprocess
+
+# subprocess.Popen(
+#     ["wmctrl", "-r", ":ACTIVE:", "-e", "0,0,0,960,-1"],
+#     stdout=subprocess.DEVNULL,
+#     stderr=subprocess.DEVNULL
+# )
+
+
+pygame.display.init()
+screen_info = pygame.display.Info()
+screen_width = screen_info.current_w
+screen_height = screen_info.current_h
+
+# 3. Calculate position for the right side
+# Subtract window width from screen width to align to the right edge
+x_pos = screen_width - 455 # 50px padding from the edge
+y_pos = 75                             # Distance from top
+
+# subprocess.Popen(
+#     [f"wmctrl", "-r", ":ACTIVE:", "-e", "0,0,0,{x_pos},-1"],
+#     stdout=subprocess.DEVNULL,
+#     stderr=subprocess.DEVNULL
+# )
+
+# 4. Set the environment variable BEFORE full initialization
+os.environ['SDL_VIDEO_WINDOW_POS'] = f"{x_pos},{y_pos}"
+os.environ["SDL_VIDEO_ALLOW_SCREENSAVER"] = "1"
+os.environ["SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS"] = "0"
+os.environ["SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR"] = "0"
+
 pygame.init()
 pygame.font.init()
-pygame.display.set_caption("Keyboard")
+pygame.display.set_caption("CalSci")
 from components import Button
 from keymap import Keypad
 from constants import KeyButtons as KB, KeypadMode as KM
@@ -11,6 +43,21 @@ from display.text_buffer import TextBuffer
 from display.text_uploader import TextUploader
 from data_modules.object_handler import keypad_state_manager_reset, screen, keypad, Typer, clock
 from process_modules.app_runner import app_runner
+
+
+# import os
+# # import pygame
+
+# WINDOW_WIDTH = 800
+# WINDOW_HEIGHT = 600
+
+# # Assume screen width (common values: 1366, 1920, etc.)
+# SCREEN_WIDTH = 1920   # change if needed
+
+# x_pos = SCREEN_WIDTH - WINDOW_WIDTH
+# y_pos = 100  # top margin
+
+# os.environ['SDL_VIDEO_WINDOW_POS'] = f"{x_pos},{y_pos}"
 
 # import watcher
 

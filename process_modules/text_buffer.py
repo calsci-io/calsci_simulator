@@ -21,6 +21,7 @@ class Textbuffer:
         self.refresh_area = (0, self.rows * self.cols)
         self.buffer()
         self.update_buffer("")
+        self.retain_data=False
 
     def buffer(self):
 
@@ -193,6 +194,32 @@ class Textbuffer:
 
     def cursor(self):
         return self.menu_buffer_cursor - self.display_buffer_position
+    
+    def get_data(self):
+        d={
+
+            "refresh_area" : self.refresh_area,
+            "text_buffer" : self.text_buffer,
+            "text_buffer_nospace" : self.text_buffer_nospace,
+            "menu_buffer_size" : self.menu_buffer_size,
+            "menu_buffer" : self.menu_buffer,
+            "menu_buffer_cursor" : self.menu_buffer_cursor,
+            "display_buffer_position" : self.display_buffer_position,
+            "no_last_spaces" : self.no_last_spaces
+        }
+
+        return d
+    
+    def fill_data(self, d):
+        self.refresh_area = d["refresh_area"]
+        self.text_buffer = d["text_buffer"]
+        self.text_buffer_nospace = d["text_buffer_nospace"]
+        self.menu_buffer_size = d["menu_buffer_size"]
+        self.menu_buffer = d["menu_buffer"]
+        self.menu_buffer_cursor = d["menu_buffer_cursor"]
+        self.display_buffer_position = d["display_buffer_position"]
+        self.no_last_spaces = d["no_last_spaces"]
+
     
 
     

@@ -3,9 +3,7 @@ from data_modules.object_handler import keypad_state_manager, display, typer, ap
 
 def create_new():
     display.clear_display()
-
-    menu_list=["create_new_1", "create_new_2"]
-
+    menu_list=["create_new_1", "create_new_2", "create_new_3", "create_new_4"]
     menu.menu_list=menu_list
     menu.update()
     menu_refresh.refresh()
