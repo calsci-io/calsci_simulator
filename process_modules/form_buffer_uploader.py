@@ -1,5 +1,5 @@
 from process_modules.uploader import BaseUploader
-import pygame
+from render_context import present
 class FormUploader(BaseUploader):
     def __init__(self, disp_out, chrs, buffer_klass):
         super().__init__(disp_out=disp_out, chrs=chrs)
@@ -30,5 +30,5 @@ class FormUploader(BaseUploader):
                     self._print_character(j, invert=False)
                 j_counter+=1
         self._display_bar(state)     
-        pygame.display.update()
+        present()
     

@@ -1,5 +1,5 @@
 from process_modules.uploader import BaseUploader
-import pygame
+from render_context import present
 
 class MenuUploader(BaseUploader):
     def __init__(self, disp_out, chrs, m_b):
@@ -21,6 +21,5 @@ class MenuUploader(BaseUploader):
                 else:
                     self._print_character(j, invert=False)
         
-        pygame.display.update()
-
+        present()
 

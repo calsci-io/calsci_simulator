@@ -114,7 +114,7 @@ class Keypad_5X8:
             [KB.LEFT_BRACKET, KB.RIGHT_BRACKET, KB.PERCENT, KB.BACKSPACE, KB.ALL_CLEAR],
             [KB.LEFT_BRACE, KB.RIGHT_BRACE, KB.COLON, KB.ASTERISK, KB.SLASH],
             [KB.LEFT_PAREN, KB.RIGHT_PAREN, KB.SEMICOLON, KB.PLUS, KB.MINUS],
-            [KB.AT, KB.QUESTION, KB.ESCAPED_QUOTE, KB.ANSWER, KB.EXE],
+            [KB.AT, KB.QUESTION, KB.BACKSLASH, KB.ANSWER, KB.EXE],
         ]
 
         self.state = state
@@ -129,4 +129,3 @@ class Keypad_5X8:
 
     def key_change(self, state):
         self.state = state
-

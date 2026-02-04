@@ -1,5 +1,5 @@
 from process_modules.uploader import BaseUploader
-import pygame
+from render_context import present
 class TextUploader(BaseUploader):
     def __init__(self, disp_out, chrs, t_b):
         super().__init__(disp_out=disp_out, chrs=chrs)
@@ -29,5 +29,4 @@ class TextUploader(BaseUploader):
                 self._print_character(" ", invert=False)
 
         self._display_bar(state)
-        pygame.display.update()
-
+        present()

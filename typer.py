@@ -1,13 +1,41 @@
 from components import Button, OtherButton
 from constants import KeyButtons as KB, KeypadMode as KM
+from display.display import get_display_metrics
+from ui_constants import DISPLAY_TOP_MARGIN, DISPLAY_BEZEL_PADDING, KEYPAD_TOP_GAP, SYSTEM_TO_MAIN_GAP
+from ui_skin import draw_shell
 import pygame
+from layout import scale_value
 
 
+SYSTEM_KEY = 40
+SYSTEM_GAP_X = 12
+SYSTEM_GAP_Y = 8
+NAV_OK = 50
+NAV_LR_W = 50
+NAV_LR_H = NAV_LR_W
+NAV_GAP = 4
+NAV_UD_W = NAV_LR_W
+NAV_UD_H = NAV_LR_W
+NAV_OFFSET_X = -6
+NAV_OFFSET_Y = -2
+
+MAIN_KEY = 50
+MAIN_GAP_X = 5
+MAIN_GAP_Y = 16
 
 def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
-    START_POINT = 200
-    HEIGHT, WIDTH = 40, 40
-    GAP_X, GAP_Y = 10, 10  # control horizontal & vertical spacing globally
+    draw_shell(screen)
+
+    HEIGHT = scale_value(SYSTEM_KEY, screen, min_value=1)
+    WIDTH = HEIGHT
+    GAP_X = scale_value(SYSTEM_GAP_X, screen, min_value=1)
+    GAP_Y = scale_value(SYSTEM_GAP_Y, screen, min_value=1)  # control horizontal & vertical spacing globally
+    _, _, display_w, display_h = get_display_metrics(screen)
+    MAIN_AREA_WIDTH = display_w
+    screen_w = screen.get_width()
+    left_margin = (screen_w - MAIN_AREA_WIDTH) // 2
+    display_bottom = scale_value(DISPLAY_TOP_MARGIN, screen, min_value=0) + display_h + scale_value(DISPLAY_BEZEL_PADDING, screen, min_value=0) * 2
+    top_start = display_bottom + scale_value(KEYPAD_TOP_GAP, screen, min_value=0)
 
     buttons = []
 
@@ -23,20 +51,44 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
             if caps and kb in [KB.A, KB.B, KB.C, KB.D, KB.E, KB.F, KB.G, KB.H, KB.I, KB.J, KB.K, KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q, KB.R, KB.S, KB.T, KB.U, KB.V, KB.W, KB.X, KB.Y, KB.Z]:
                 value = KB.get_symbol(kb).capitalize()
             
-            buttons.append(Button(value, HEIGHT, WIDTH, start_x + i * (WIDTH + gap_x), start_y, enabled))
+            shape = "circle" if kb in (KB.RST, KB.BT) else "rect"
+            buttons.append(Button(value, HEIGHT, WIDTH, start_x + i * (WIDTH + gap_x), start_y, enabled, shape=shape))
 
 
         return buttons
     
-    NAV_START_POINT = 300
+    system_cols = 3
+    system_width = system_cols * WIDTH + (system_cols - 1) * GAP_X
+
+    nav_ok_size = scale_value(NAV_OK, screen, min_value=1)
+    nav_lr_w = scale_value(NAV_LR_W, screen, min_value=1)
+    nav_lr_h = scale_value(NAV_LR_H, screen, min_value=1)
+    nav_gap = scale_value(NAV_GAP, screen, min_value=1)
+    nav_ud_w = scale_value(NAV_UD_W, screen, min_value=1)
+    nav_ud_h = scale_value(NAV_UD_H, screen, min_value=1)
+    nav_width = nav_lr_w + nav_gap + nav_ok_size + nav_gap + nav_lr_w
+    nav_height = nav_ud_h + nav_gap + nav_ok_size + nav_gap + nav_ud_h
+
+    top_gap = MAIN_AREA_WIDTH - system_width - nav_width
+    top_gap = max(top_gap, GAP_X)
+    system_start_x = left_margin
+    nav_left_edge = system_start_x + system_width + top_gap + scale_value(NAV_OFFSET_X, screen, min_value=-1000)
+    system_block_h = 3 * HEIGHT + 2 * GAP_Y
+    system_y_start = top_start
+    nav_top_edge = system_y_start + (system_block_h - nav_height) // 2 + scale_value(NAV_OFFSET_Y, screen, min_value=-1000)
+
+    nav_ok_x = nav_left_edge + nav_lr_w + nav_gap
+    nav_ok_y = nav_top_edge + nav_ud_h + nav_gap
+    nav_ud_x = nav_left_edge + (nav_width - nav_ud_w) // 2
+    nav_lr_y = nav_ok_y + (nav_ok_size - nav_lr_h) // 2
     
     # --- Navigation Buttons ---
     nav_buttons = [
-        Button(KB.get_symbol(KB.OK), 50, 50, NAV_START_POINT, NAV_START_POINT),
-        Button(KB.get_symbol(KB.NAV_U), 50, 25, NAV_START_POINT, NAV_START_POINT - (25 + GAP_Y)),
-        Button(KB.get_symbol(KB.NAV_D), 50, 25, NAV_START_POINT, NAV_START_POINT + 50 + GAP_Y),
-        Button(KB.get_symbol(KB.NAV_L), 40, 50, NAV_START_POINT - (40 + GAP_X // 2), NAV_START_POINT),
-        Button(KB.get_symbol(KB.NAV_R), 40, 50, NAV_START_POINT + (50 + GAP_X // 2), NAV_START_POINT),
+        Button(KB.get_symbol(KB.OK), nav_ok_size, nav_ok_size, nav_ok_x, nav_ok_y),
+        Button(KB.get_symbol(KB.NAV_U), nav_ud_w, nav_ud_h, nav_ud_x, nav_top_edge),
+        Button(KB.get_symbol(KB.NAV_D), nav_ud_w, nav_ud_h, nav_ud_x, nav_ok_y + nav_ok_size + nav_gap),
+        Button(KB.get_symbol(KB.NAV_L), nav_lr_w, nav_lr_h, nav_left_edge, nav_lr_y),
+        Button(KB.get_symbol(KB.NAV_R), nav_lr_w, nav_lr_h, nav_left_edge + nav_lr_w + nav_gap + nav_ok_size + nav_gap, nav_lr_y),
     ]
     buttons.extend(nav_buttons)
 
@@ -48,8 +100,8 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
     ]
 
     for i, row in enumerate(system_rows):
-        y = START_POINT + (HEIGHT + GAP_Y) * i + 50
-        buttons.extend(create_row(row, 50, y, GAP_X))
+        y = system_y_start + (HEIGHT + GAP_Y) * i
+        buttons.extend(create_row(row, system_start_x, y, GAP_X))
 
     # --- Keyboard Layouts ---
     
@@ -62,9 +114,16 @@ def get_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
 
 
 def get_other_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
-    START_POINT = 140
-    HEIGHT, WIDTH = 50, 50
-    GAP_X, GAP_Y = 5, 20  # control horizontal & vertical spacing globally
+    HEIGHT = scale_value(MAIN_KEY, screen, min_value=1)
+    WIDTH = HEIGHT
+    GAP_X = scale_value(MAIN_GAP_X, screen, min_value=1)
+    GAP_Y = scale_value(MAIN_GAP_Y, screen, min_value=1)  # control horizontal & vertical spacing globally
+    _, _, display_w, display_h = get_display_metrics(screen)
+    MAIN_AREA_WIDTH = display_w
+    screen_w = screen.get_width()
+    left_margin = (screen_w - MAIN_AREA_WIDTH) // 2
+    display_bottom = scale_value(DISPLAY_TOP_MARGIN, screen, min_value=0) + display_h + scale_value(DISPLAY_BEZEL_PADDING, screen, min_value=0) * 2
+    top_start = display_bottom + scale_value(KEYPAD_TOP_GAP, screen, min_value=0)
     buttons = []
     section_1_layouts = [
             [(KB.TOOLBOX,KB.CAPS,KB.UNDO), 
@@ -79,7 +138,7 @@ def get_other_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
              (KB.PI, KB.H, KB.BACKTICK), 
              (KB.EULER_CONSTANT, KB.I, KB.ESCAPED_QUOTE),
              (KB.SUMMATION, KB.J, KB.SINGLE_QUOTE) , 
-             (KB.FRACTION, KB.K, KB.SLASH)],
+             (KB.FRACTION, KB.K, KB.SHOT)],
 
             [(KB.LN, KB.L, KB.DOLLAR), 
              (KB.LOG,KB.M, KB.CARET), 
@@ -99,18 +158,18 @@ def get_other_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
             [(KB.FOUR, KB.U, KB.LEFT_BRACE), 
              (KB.FIVE, KB.V, KB.RIGHT_BRACE), 
              (KB.SIX, KB.W, KB.COLON), 
-             (KB.PLUS, "", ""), 
-             (KB.SLASH, "", "")],
+             (KB.MULTIPLY, "", ""), 
+             (KB.DIVIDE, "", "")],
 
             [(KB.ONE, KB.X, KB.LEFT_PAREN), 
              (KB.TWO, KB.Y, KB.RIGHT_PAREN), 
              (KB.THREE, KB.Z, KB.SEMICOLON), 
-             (KB.MULTIPLY, "", ""), 
+             (KB.PLUS, "", ""), 
              (KB.MINUS, "", "")],
             
             [(KB.DECIMAL, KB.SPACE, KB.AT), 
              (KB.ZERO, KB.OFF, KB.QUESTION), 
-             (KB.COMMA, KB.TAB, KB.ESCAPED_QUOTE), 
+             (KB.COMMA, KB.TAB, KB.BACKSLASH), 
              (KB.ANSWER, "", ""), 
              (KB.EXE, "", "")],
         ]
@@ -139,18 +198,21 @@ def get_other_buttons(screen, alpha=False, beta=False, caps=False, state="d"):
 
 
     # --- Section 1 Buttons ---
-    section_1_y_start = START_POINT + 4 * (HEIGHT + GAP_Y)  # below system buttons
+    section_1_gap_x = max(int((MAIN_AREA_WIDTH - (6 * WIDTH)) / 5), GAP_X)
+    system_block_h = 3 * scale_value(SYSTEM_KEY, screen, min_value=1) + 2 * scale_value(SYSTEM_GAP_Y, screen, min_value=1)
+    section_1_y_start = top_start + system_block_h + scale_value(SYSTEM_TO_MAIN_GAP, screen, min_value=0)
     for i, row in enumerate(section_1_layouts):
         y = section_1_y_start + i * (HEIGHT + GAP_Y)
-        buttons.extend(create_row(row, 50, y, GAP_X))
+        buttons.extend(create_row(row, left_margin, y, section_1_gap_x))
 
         
 
     # --- Section 2 Buttons ---
-    section_2_y_start = section_1_y_start +  3.25 * (HEIGHT + GAP_Y)
+    section_2_y_start = section_1_y_start +  3.0 * (HEIGHT + GAP_Y)
     for i, row in enumerate(section_2_layouts):
         y = section_2_y_start + i * (HEIGHT + GAP_Y)
-        buttons.extend(create_row(row, 50, y, GAP_X + 20))  # slightly wider layout
+        section_2_gap_x = max(int((MAIN_AREA_WIDTH - (5 * WIDTH)) / 4), GAP_X + scale_value(20, screen, min_value=0))
+        buttons.extend(create_row(row, left_margin, y, section_2_gap_x))
 
 
     for button in buttons:
