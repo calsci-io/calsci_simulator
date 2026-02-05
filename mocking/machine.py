@@ -1,4 +1,10 @@
+"""
+Mock machine module for simulator.
+Provides hardware abstraction compatible with MicroPython's machine module.
+"""
+
 import random
+
 mem8 = []
 mem16 = []
 mem32 = []
@@ -71,7 +77,7 @@ IDLE=0
 SLEEP=0
 DEEPSLEEP=0
 
-# RESET Causes 
+# RESET Causes
 PWRON_RESET=0
 HARD_RESET=0
 WDT_RESET=0
@@ -171,9 +177,64 @@ class Pin:
             self.value(1)
 
 
+class Timer:
+    """Mock Timer class for simulator."""
+    ONE_SHOT = 0
+    PERIODIC = 1
+
+    def __init__(self, id=-1):
+        self.id = id
+        self._callback = None
+        self._period = 0
+        self._mode = Timer.PERIODIC
+
+    def init(self, *, mode=PERIODIC, period=-1, callback=None):
+        self._mode = mode
+        self._period = period
+        self._callback = callback
+
+    def deinit(self):
+        self._callback = None
+
+    def value(self):
+        return 0
 
 
+class SoftSPI:
+    """Mock SoftSPI class for simulator."""
+    LSB = 0
+    MSB = 1
 
+    def __init__(self, baudrate=500000, *, polarity=0, phase=0, bits=8, firstbit=MSB, sck=None, mosi=None, miso=None):
+        self.baudrate = baudrate
+        self.polarity = polarity
+        self.phase = phase
+        self.bits = bits
+        self.firstbit = firstbit
+        self.sck = sck
+        self.mosi = mosi
+        self.miso = miso
 
+    def init(self, baudrate=500000, *, polarity=0, phase=0, bits=8, firstbit=MSB):
+        self.baudrate = baudrate
+        self.polarity = polarity
+        self.phase = phase
+        self.bits = bits
+        self.firstbit = firstbit
 
+    def deinit(self):
+        pass
 
+    def read(self, nbytes, write=0x00):
+        return bytes([0] * nbytes)
+
+    def readinto(self, buf, write=0x00):
+        for i in range(len(buf)):
+            buf[i] = 0
+
+    def write(self, buf):
+        pass
+
+    def write_readinto(self, write_buf, read_buf):
+        for i in range(len(read_buf)):
+            read_buf[i] = 0

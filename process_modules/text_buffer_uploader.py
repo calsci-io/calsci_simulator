@@ -1,5 +1,5 @@
 from process_modules.uploader import BaseUploader
-from render_context import present
+from ui import present
 class TextUploader(BaseUploader):
     def __init__(self, disp_out, chrs, t_b):
         super().__init__(disp_out=disp_out, chrs=chrs)

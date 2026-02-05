@@ -2,17 +2,17 @@ import pygame
 pygame.init()
 pygame.font.init()
 pygame.display.set_caption("Keyboard")
-import render_context as rc
-from components import Button
-from keymap import Keypad
-from constants import KeyButtons as KB, KeypadMode as KM
+import ui as rc
+from ui import Button
+from utility.keymap import Keypad
+from utility.constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 from display.characters import Characters 
 from display.text_buffer import TextBuffer
 from display.text_uploader import TextUploader
 from data_modules.object_handler import keypad_state_manager_reset, screen, keypad, Typer, clock
 from process_modules.app_runner import app_runner
-from typer import get_buttons, get_other_buttons
+from utility.typer import get_buttons, get_other_buttons
 import data_modules.object_handler as oh
 
 # screen = pygame.display.set_mode((450, 800))

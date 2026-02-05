@@ -1,4 +1,4 @@
-from machine import Pin, SoftSPI  # type: ignore
+from mocking.machine import Pin, SoftSPI  # type: ignore
 import time
 
 class MAX31865:

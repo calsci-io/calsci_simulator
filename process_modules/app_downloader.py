@@ -107,6 +107,6 @@ class App_downloader:
         return True
 
     def reset(self): #5. reset operation
-        from machine import reset
+        from mocking.machine import reset
         reset()
         return True

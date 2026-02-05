@@ -1,6 +1,6 @@
-# import utime as time  # type:ignore
+# from mocking import utime as time  # type:ignore
 from math import *
-import machine
+from mocking import machine
 from data_modules.object_handler import display, text, nav, text_refresh, typer, keypad_state_manager, keypad_state_manager_reset, current_app, app
 # from process_modules import boot_up_data_update
 # import uasyncio as asyncio

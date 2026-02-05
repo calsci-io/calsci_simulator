@@ -1,5 +1,5 @@
 import uasyncio as asyncio
-from machine import Pin
+from mocking.machine import Pin
 
 input_pin = Pin(2, Pin.IN, Pin.PULL_UP)
 task = None

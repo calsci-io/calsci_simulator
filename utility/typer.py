@@ -1,10 +1,8 @@
-from components import Button, OtherButton
-from constants import KeyButtons as KB, KeypadMode as KM
+from ui import Button, OtherButton, draw_shell, scale_value
+from ui import DISPLAY_TOP_MARGIN, DISPLAY_BEZEL_PADDING, KEYPAD_TOP_GAP, SYSTEM_TO_MAIN_GAP
+from utility.constants import KeyButtons as KB, KeypadMode as KM
 from display.display import get_display_metrics
-from ui_constants import DISPLAY_TOP_MARGIN, DISPLAY_BEZEL_PADDING, KEYPAD_TOP_GAP, SYSTEM_TO_MAIN_GAP
-from ui_skin import draw_shell
 import pygame
-from layout import scale_value
 
 
 SYSTEM_KEY = 40

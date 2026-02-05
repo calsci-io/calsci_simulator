@@ -2,9 +2,7 @@ import random, pygame, sys
 from pygame.locals import *
 
 from display.characters import Characters
-from ui_constants import DISPLAY_TOP_MARGIN, DISPLAY_SIDE_PADDING
-from render_context import present
-from layout import scale_value
+from ui import DISPLAY_TOP_MARGIN, DISPLAY_SIDE_PADDING, present, scale_value
 
 FPS = 60 # frames per second, the general speed of the program
 BASE_BOXSIZE = 3 # size of box height & width in pixels (base scale)

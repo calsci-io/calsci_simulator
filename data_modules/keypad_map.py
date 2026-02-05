@@ -74,7 +74,7 @@
 #     def key_change(self, state):
 #         self.state=state
 
-from constants import KeyButtons as KB, KeypadMode as KM
+from utility.constants import KeyButtons as KB, KeypadMode as KM
 
 class Keypad_5X8:
     def __init__(self, state=KM.DEFAULT):

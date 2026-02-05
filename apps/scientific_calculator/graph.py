@@ -1,11 +1,11 @@
-import framebuf # type: ignore
+from mocking import framebuf # type: ignore
 import math
-import utime as time  # type:ignore
+from mocking import utime as time  # type:ignore
 from data_modules.object_handler import display, form, nav, text, text_refresh, form_refresh, typer, keypad_state_manager, keypad_state_manager_reset
 from data_modules.object_handler import current_app
 import gc
 try:
-    import gc_mock  # type: ignore  # Extends gc with MicroPython functions for simulator
+    from mocking import gc_mock  # type: ignore  # Extends gc with MicroPython functions for simulator
 except:
     pass
 
@@ -250,9 +250,11 @@ def safe_eval(func, exp_str, x):
         pass
     return None
 
-def draw_axis_labels(fb, x_min, x_max, y_min, y_max, width, height):
+def draw_axis_labels(fb, x_min, x_max, y_min, y_max, width, height, bottom_margin=None):
     """Draw numeric labels on axis boundaries."""
-    plot_height = height - GRAPH_CONFIG['bottom_margin']
+    if bottom_margin is None:
+        bottom_margin = GRAPH_CONFIG['bottom_margin']
+    plot_height = height - bottom_margin
 
     # Format numbers simply and safely
     def format_label(val):
@@ -382,12 +384,19 @@ def pan_by_pixels(bounds, dx_px=0, dy_px=0, width=128, height=64):
         new_bounds['y_min'] -= dy
         new_bounds['y_max'] -= dy
     return new_bounds
+def get_bottom_margin(cursor_state):
+    """Return bottom margin based on cursor state - 0 when cursor is off, 8 when on."""
+    if cursor_state is None or cursor_state.mode == 'none':
+        return 0
+    return 8
+
+
 def draw_cursor(fb, cursor_state, bounds, func, exp_str, width=128, height=64):
     """Draw cursor vertical line and display x and y coordinates."""
     if cursor_state.mode == 'none':
         return
 
-    plot_height = height - GRAPH_CONFIG['bottom_margin']
+    plot_height = height - get_bottom_margin(cursor_state)
 
     x_range = bounds['x_max'] - bounds['x_min']
     y_range = bounds['y_max'] - bounds['y_min']
@@ -443,10 +452,12 @@ def draw_cursor(fb, cursor_state, bounds, func, exp_str, width=128, height=64):
 def replot_graph(fb, exp_str, bounds, cursor_state=None):
     """Clear and replot the graph with new bounds."""
     fb.fill(0)
+    # Use dynamic bottom margin based on cursor state
+    bottom_margin = get_bottom_margin(cursor_state)
     plot_function(fb=fb, func=polynom1, exp_str=exp_str,
                   x_min=bounds['x_min'], x_max=bounds['x_max'],
                   y_min=bounds['y_min'], y_max=bounds['y_max'],
-                  width=128, height=64)
+                  width=128, height=64, bottom_margin=bottom_margin)
     if cursor_state:
         draw_cursor(fb, cursor_state, bounds, polynom1, exp_str)
     display.clear_display()
@@ -739,11 +750,13 @@ def graph(db={}):
         time.sleep(0.1)
     print("end of graph", _mem_free())
 
-def plot_function(fb, func, exp_str, x_min, x_max, y_min, y_max, width, height):
+def plot_function(fb, func, exp_str, x_min, x_max, y_min, y_max, width, height, bottom_margin=None):
     """Advanced plotting with adaptive sampling and edge case handling."""
     global eval_globals
 
-    plot_height = height - GRAPH_CONFIG['bottom_margin']
+    if bottom_margin is None:
+        bottom_margin = GRAPH_CONFIG['bottom_margin']
+    plot_height = height - bottom_margin
     if width < 2 or plot_height < 2:
         return
 

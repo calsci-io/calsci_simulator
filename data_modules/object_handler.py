@@ -9,12 +9,12 @@ from process_modules.form_buffer import Form
 from process_modules.form_buffer_uploader import FormUploader as form_tbf
 import pygame
 from pathlib import Path
-import render_context as rc
+import ui as rc
 
-from keymap import Keypad
+from utility.keymap import Keypad
 
-from components import Button, OtherButton
-from constants import KeyButtons as KB, KeypadMode as KM
+from ui import Button, OtherButton
+from utility.constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 
 clock = pygame.time.Clock()
@@ -49,7 +49,7 @@ def play_click_sound():
     if sound:
         sound.play()
 
-from typer import get_buttons, get_other_buttons
+from utility.typer import get_buttons, get_other_buttons
 
 # def draw_buttons():
 #     buttons = []

@@ -1,4 +1,4 @@
-import utime as time  # type:ignore
+from mocking import utime as time  # type:ignore
 from math import *
 # import machine
 from data_modules.object_handler import display, nav, typer, keypad_state_manager, form, form_refresh
