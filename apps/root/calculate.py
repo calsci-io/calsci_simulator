@@ -24,9 +24,9 @@ def calculate():
             # if x=="":
             #     text_refresh.refresh(state=nav.current_state())
             #     continue
-            if x == "back":
-                current_app[0]="home"
-                current_app[1] = "application_modules"
+            if x == "back" or x == "home":
+                app.set_app_name("home")
+                app.set_group_name("root")
                 break
 
             if x == "ok" and task == None:

@@ -194,5 +194,33 @@ class Textbuffer:
     def cursor(self):
         return self.menu_buffer_cursor - self.display_buffer_position
     
+    def set_cursor(self, cursor):
+        total_display = self.rows * self.cols
+        max_cursor = max(0, self.text_buffer_nospace)
+        cursor = max(0, min(cursor, max_cursor))
+        self.menu_buffer_cursor = cursor
+        if cursor < self.display_buffer_position:
+            self.display_buffer_position = cursor - (cursor % self.cols)
+        elif cursor > self.display_buffer_position + total_display - 1:
+            self.display_buffer_position = cursor - (self.rows - 1) * self.cols
+            if self.display_buffer_position < 0:
+                self.display_buffer_position = 0
+            self.display_buffer_position -= self.display_buffer_position % self.cols
+        self.refresh_area = (0, total_display)
+
+    def set_text(self, new_text, cursor=None):
+        if new_text is None:
+            new_text = ""
+        self.text_buffer = new_text + "𖤓"
+        self.text_buffer_nospace = len(new_text)
+        self.menu_buffer_size = len(self.text_buffer)
+        self.menu_buffer = list(range(self.menu_buffer_size))
+        self.menu_buffer_cursor = 0
+        self.display_buffer_position = 0
+        self.no_last_spaces = 0
+        self.extra_spaces = 0
+        if cursor is None:
+            cursor = self.text_buffer_nospace
+        self.set_cursor(cursor)
 
     

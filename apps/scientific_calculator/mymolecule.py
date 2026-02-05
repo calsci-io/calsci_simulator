@@ -1,6 +1,6 @@
 from data_modules.object_handler import display, form, nav, form_refresh, typer, keypad_state_manager, keypad_state_manager_reset
 from data_modules.object_handler import current_app
-import urequests # type: ignore
+from mocking import urequests  # type: ignore
 import gc
 import time
 # def search(term):
@@ -20,8 +20,13 @@ def mymolecule(db={}):
     while True:
         inp = typer.start_typing()
         if inp == "back":
-            # del buffer1, fb1
+            current_app[0]="scientific_calculator"
+            current_app[1]="application_modules"
+            break
+
+        if inp == "home":
             current_app[0]="home"
+            current_app[1]="root"
             break
 
         elif inp == "ok":

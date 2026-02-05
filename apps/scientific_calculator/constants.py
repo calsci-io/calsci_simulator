@@ -32,6 +32,11 @@ def constants(db={}):
             current_app[1] = "application_modules"
             break
 
+        if inp == "home":
+            current_app[0] = "home"
+            current_app[1] = "root"
+            break
+
         if inp == "alpha" or inp == "beta":
             keypad_state_manager(x=inp)
             search_buffer.update_buffer("")

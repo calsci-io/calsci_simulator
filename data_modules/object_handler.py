@@ -1,6 +1,7 @@
 import builtins
 from process_modules.text_buffer import Textbuffer
 from process_modules.text_buffer_uploader import TextUploader as text_tbf
+from process_modules.function_buffer import FunctionBuffer
 
 from process_modules.menu_buffer import Menu
 from process_modules.menu_buffer_uploader import MenuUploader as menu_tbf
@@ -213,19 +214,25 @@ builtins.chrs=chrs
 text=Textbuffer()
 menu=Menu()
 form=Form()
+popup_menu=Menu()
+function_buffer = FunctionBuffer()
 builtins.text=text
 builtins.menu=menu
 builtins.form=form
+builtins.popup_menu=popup_menu
+builtins.function_buffer = function_buffer
 
 nav = Nav(disp_out=display, chrs=chrs)
 builtins.nav=nav
 
-text_refresh=text_tbf(disp_out=display, chrs=chrs, t_b=text)
+text_refresh=text_tbf(disp_out=display, chrs=chrs, t_b=text, selection_provider=function_buffer.selection_range)
 menu_refresh=menu_tbf(disp_out=display, chrs=chrs, m_b=menu)
 form_refresh=form_tbf(disp_out=display, chrs=chrs, buffer_klass=form)
+popup_refresh=menu_tbf(disp_out=display, chrs=chrs, m_b=popup_menu)
 builtins.text_refresh=text_refresh
 builtins.menu_refresh=menu_refresh
 builtins.form_refresh=form_refresh
+builtins.popup_refresh=popup_refresh
 
 app=App()
 builtins.app=App()

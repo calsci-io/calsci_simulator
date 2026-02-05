@@ -29,7 +29,7 @@ def installed_apps():
     try:
         while True:
             inp = typer.start_typing()
-            if inp == "back":
+            if inp == "back" or inp == "home":
                 # current_app[0] = "home"
                 # current_app[1]="application_modules"
                 app.set_app_name("home")

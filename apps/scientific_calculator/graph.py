@@ -501,7 +501,12 @@ def graph(db={}):
             del buffer1, fb1
             current_app[0]="scientific_calculator"
             current_app[1]="application_modules"
+            break
 
+        elif inp == "home":
+            del buffer1, fb1
+            current_app[0]="home"
+            current_app[1]="root"
             break
 
         elif inp == "ok":
@@ -733,7 +738,11 @@ def graph(db={}):
                 elif inp_breaker == "back":
                     break
 
-
+                elif inp_breaker == "home":
+                    del buffer1, fb1
+                    current_app[0] = "home"
+                    current_app[1] = "root"
+                    return
 
             fb1.fill(0)
             form.refresh_rows = (0, form.actual_rows)
