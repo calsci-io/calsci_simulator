@@ -20,6 +20,11 @@ def add_2_nums(db={}):
             app.set_app_name("installed_apps")
             app.set_group_name("root")
             break
+
+        if inp == "home":
+            app.set_app_name("home")
+            app.set_group_name("root")
+            break
         
         if inp == "ok":
             try:

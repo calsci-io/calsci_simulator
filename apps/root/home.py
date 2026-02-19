@@ -1,14 +1,11 @@
 import time
 import json
-from data_modules.object_handler import nav, keypad_state_manager, typer, display
-from data_modules.object_handler import current_app
-# from process_modules import boot_up_data_update
-from data_modules.object_handler import app
-import pygame
+from data_modules.object_handler import nav, keypad_state_manager, typer
+from data_modules.object_handler import app, display, menu, menu_refresh
 
 def home(db={}):
     display.clear_display()
-    json_file = "db/application_modules_app_list.json" 
+    json_file = "db/application_modules_app_list.json"
     with open(json_file, "r") as file:
         data = json.load(file)
 
@@ -16,7 +13,6 @@ def home(db={}):
     for apps in data:
         if apps["visibility"]:
             menu_list.append(apps["name"])
-    
 
     menu.menu_list=menu_list
     menu.update()
@@ -26,7 +22,7 @@ def home(db={}):
             inp = typer.start_typing()
             if inp == "back":
                 pass
-            elif inp == "alpha" or inp == "beta":                        
+            elif inp == "alpha" or inp == "beta":
                 keypad_state_manager(x=inp)
                 menu.update_buffer("")
             elif inp =="ok":

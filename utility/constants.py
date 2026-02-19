@@ -4,7 +4,7 @@ class KeyButtons:
     
     KEY_MAP = {
     "RST": "RST",
-    "BT": "BT",
+    "BT": "Boot",
     "OK": "OK",
     "ON": "ON",
 
@@ -18,7 +18,7 @@ class KeyButtons:
 
     "HOME": "⌂",
     "WIFI": "📶",
-    "TAB": "↹",
+    "TAB": "tab",
     "BACKLIGHT": "🔆",
     "BACK": "↩",
     "TOOLBOX": "🧰",
@@ -48,25 +48,25 @@ class KeyButtons:
     "POW( ,0.5)": "√",
     "POW( ,2)": "x²",
 
-    "S_D": "S→D",
+    "S_D": "S↔D",
 
     "SEVEN": "7",
     "EIGHT": "8",
     "NINE": "9",
-    "NAV_B": "⌫",
+    "NAV_B": "DEL",
     "AC": "AC",
 
     "FOUR": "4",
     "FIVE": "5",
     "SIX": "6",
-    "MULTIPLY": "×",
-    "DIVIDE": "÷",
+    "MULTIPLY": "*",
+    "DIVIDE": "/",
 
     "ONE": "1",
     "TWO": "2",
     "THREE": "3",
     "PLUS": "+",
-    "MINUS": "−",
+    "MINUS": "-",
 
     "DECIMAL": ".",
     "ZERO": "0",
@@ -75,19 +75,19 @@ class KeyButtons:
     "ANSWER": "ANS",
     "EXE": "EXE",
 
-    "CAPS": "⇪",
+    "CAPS": "caps",
 
-    "A": "a", "B": "b", "C": "c", "D": "d", "E": "e", "F": "f",
-    "G": "g", "H": "h", "I": "i", "J": "j", "K": "k", "L": "l",
-    "M": "m", "N": "n", "O": "o", "P": "p", "Q": "q", "R": "r",
-    "S": "s", "T": "t", "U": "u", "V": "v", "W": "w", "X": "x",
-    "Y": "y", "Z": "z",
+    "A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F",
+    "G": "G", "H": "H", "I": "I", "J": "J", "K": "K", "L": "L",
+    "M": "M", "N": "N", "O": "O", "P": "P", "Q": "Q", "R": "R",
+    "S": "S", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X",
+    "Y": "Y", "Z": "Z",
 
     "OFF": "off",
 
     
     
-    "UNDO": "↺",
+    "UNDO": "undo",
 
     
     
@@ -122,7 +122,7 @@ class KeyButtons:
 
     
 
-    "SHOT": "◉",
+    "SHOT": "shot",
     "SPACE": " "
     }
     @classmethod

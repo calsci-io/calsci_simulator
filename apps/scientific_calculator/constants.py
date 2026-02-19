@@ -1,49 +1,60 @@
-import utime as time  # type:ignore
-from math import *
-# import machine
-from data_modules.object_handler import display, nav, typer, keypad_state_manager, form, form_refresh
-from process_modules import boot_up_data_update
+from mocking import utime as time  # type:ignore
+from data_modules.object_handler import display, nav, typer, keypad_state_manager, chrs
 from data_modules.object_handler import current_app, data_bucket
+from process_modules.search_buffer import SearchBuffer
+from process_modules.search_buffer_uploader import SearchUploader
+from apps.scientific_calculator.constants_data import SCIENTIFIC_CONSTANTS
 
 
 def constants(db={}):
-    constant_symbols_and_values = [
-        "pi", "Pi", "3.141592653589793",
-        "e", "Euler’s Number", "2.718281828459045",
-        "g", "Gravitational Acceleration", "9.80665",
-        "G", "Gravitational Constant", "6.67430e-11",
-        "c", "Speed of Light", "2.99792458e8",
-        "h", "Planck’s Constant", "6.62607015e-34",
-        "k", "Boltzmann Constant", "1.380649e-23",
-        "R", "Gas Constant", "8.314462618",
-        "N_A", "Avogadro’s Number", "6.02214076e23",
-        "eps_0", "Permittivity of Free Space", "8.8541878128e-12",
-        "mu_0", "Permeability of Free Space", "1.25663706212e-6",
-        "phi", "Golden Ratio", "1.618033988749895"
-        ]
-    form.form_list = constant_symbols_and_values
-    form.update()
+    # Initialize search buffer with all constants
+    search_buffer = SearchBuffer(
+        rows=7,
+        cols=21,
+        constants_data=SCIENTIFIC_CONSTANTS
+    )
+
+    # Initialize uploader
+    search_uploader = SearchUploader(
+        disp_out=display,
+        chrs=chrs,
+        buffer_klass=search_buffer
+    )
+
     display.clear_display()
-    form_refresh.refresh()
+    search_uploader.refresh()
 
     while True:
         inp = typer.start_typing()
+
         if inp == "back":
-            current_app[0]="scientific_calculator"
-            current_app[1]="application_modules"
+            current_app[0] = "scientific_calculator"
+            current_app[1] = "application_modules"
             break
-        
+
+        if inp == "home":
+            current_app[0] = "home"
+            current_app[1] = "root"
+            break
+
         if inp == "alpha" or inp == "beta":
             keypad_state_manager(x=inp)
-            form.update_buffer("")
+            search_buffer.update_buffer("")
 
-        if inp == "off":
-            boot_up_data_update.main()
-            machine.deepsleep()
-        if inp not in ["alpha", "beta", "ok"]:
-            form.update_buffer(inp)
-        form_refresh.refresh(state=nav.current_state())
-        time.sleep(0.15)
+        elif inp == "ok":
+            result = search_buffer.update_buffer(inp)
+            if result is not None:
+                # User selected a constant - copy value to clipboard
+                selected_symbol, selected_name, selected_value = result
+                data_bucket["clipboard"] = selected_value
+                data_bucket["clipboard_symbol"] = selected_symbol
+                # Return to scientific_calculator menu
+                current_app[0] = "scientific_calculator"
+                current_app[1] = "application_modules"
+                break
 
+        elif inp not in ["alpha", "beta"]:
+            search_buffer.update_buffer(inp)
 
-
+        search_uploader.refresh(state=nav.current_state())
+        time.sleep(0.1)

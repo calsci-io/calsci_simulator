@@ -1,5 +1,5 @@
 import time
-from machine import Pin, time_pulse_us
+from mocking.machine import Pin, time_pulse_us
 
 class HCSR04:
     def __init__(self, trigger_pin, echo_pin, echo_timeout_us=30000):

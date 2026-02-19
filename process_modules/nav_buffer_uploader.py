@@ -1,4 +1,4 @@
-import pygame
+from ui import present
 class Tbf:
     def __init__(self, disp_out, chrs, m_b):
         self.disp_out=disp_out
@@ -49,4 +49,4 @@ class Tbf:
             self.disp_out.write_data(cursor_line)
             j_counter+=1
         
-        pygame.display.update()
+        present()

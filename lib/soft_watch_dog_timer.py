@@ -1,4 +1,4 @@
-from machine import Timer
+from mocking.machine import Timer
 import time
 
 class SoftWatchdog:

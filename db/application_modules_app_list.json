@@ -15,19 +15,13 @@
         "visibility": true
     },
     {
-        "name": "chatbot_ai",
-        "folder": "application_modules",
-        "visibility": false
-    },
-    {
         "name": "installed_apps",
         "folder": "application_modules",
         "visibility": true
     },
     {
         "name": "scientific_calculator",
-        "folder":"application_modules",
+        "folder": "application_modules",
         "visibility": true
     }
-    
 ]

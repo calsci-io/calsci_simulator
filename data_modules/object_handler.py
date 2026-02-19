@@ -1,6 +1,7 @@
 import builtins
 from process_modules.text_buffer import Textbuffer
 from process_modules.text_buffer_uploader import TextUploader as text_tbf
+from process_modules.function_buffer import FunctionBuffer
 
 from process_modules.menu_buffer import Menu
 from process_modules.menu_buffer_uploader import MenuUploader as menu_tbf
@@ -8,21 +9,48 @@ from process_modules.menu_buffer_uploader import MenuUploader as menu_tbf
 from process_modules.form_buffer import Form
 from process_modules.form_buffer_uploader import FormUploader as form_tbf
 import pygame
+from pathlib import Path
+import ui as rc
 
-from keymap import Keypad
+from utility.keymap import Keypad
 
-from components import Button
-from constants import KeyButtons as KB, KeypadMode as KM
+from ui import Button, OtherButton
+from utility.constants import KeyButtons as KB, KeypadMode as KM
 from display.display import Display, WINDOWHEIGHT, page_col
 
-screen = pygame.display.set_mode((450, 950))
-pygame.display.set_caption("Keyboard")
 clock = pygame.time.Clock()
 keypad = Keypad()
 
-screen.fill((240, 240, 240))
+screen = rc.screen
+screen.fill((20, 22, 26))
 
-from typer import get_buttons, get_other_buttons
+_click_sound = None
+
+
+def _load_click_sound():
+    global _click_sound
+    if _click_sound is not None:
+        return _click_sound
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+        sound_path = Path(__file__).resolve().parent.parent / "assets" / "click.wav"
+        if sound_path.exists():
+            _click_sound = pygame.mixer.Sound(str(sound_path))
+            _click_sound.set_volume(0.4)
+        else:
+            _click_sound = False
+    except Exception:
+        _click_sound = False
+    return _click_sound
+
+
+def play_click_sound():
+    sound = _load_click_sound()
+    if sound:
+        sound.play()
+
+from utility.typer import get_buttons, get_other_buttons
 
 # def draw_buttons():
 #     buttons = []
@@ -41,7 +69,9 @@ class Typer:
     def __init__(self,keypad, keypad_map):
         self.keypad = keypad
         self.keypad_map = keypad_map
-        self.buttons = get_buttons(screen).extend(get_other_buttons(screen))
+        self.screen = screen
+        self.buttons = get_buttons(screen)
+        self.buttons.extend(get_other_buttons(screen))
         self.is_alpha = False
         self.is_beta = False
         self.is_caps = False
@@ -51,6 +81,7 @@ class Typer:
         # event = pygame.event.wait()
         waiting = True
         while waiting:
+            global screen
             event = pygame.event.wait()
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -59,13 +90,27 @@ class Typer:
                 if event.button != 1:
                     continue
                 
-                pos = pygame.mouse.get_pos()
+                pos = rc.map_input_pos(pygame.mouse.get_pos())
+                if pos is None:
+                    continue
                 for button in self.buttons:
                     if button.is_clicked(pos):
+                        play_click_sound()
+                        if isinstance(button, OtherButton):
+                            button.draw(screen, state=self.keypad.state, pressed=True)
+                        else:
+                            button.draw(screen, pressed=True)
+                        rc.present()
+                        pygame.time.delay(70)
+                        if isinstance(button, OtherButton):
+                            button.draw(screen, state=self.keypad.state, pressed=False)
+                        else:
+                            button.draw(screen, pressed=False)
+                        rc.present()
                         
                         key = button.get_text(self.keypad.state)
                         print("key pressed:", key)
-                        pygame.display.update()
+                        rc.present()
                         if key == "AC":
                             return key
                         
@@ -169,19 +214,25 @@ builtins.chrs=chrs
 text=Textbuffer()
 menu=Menu()
 form=Form()
+popup_menu=Menu()
+function_buffer = FunctionBuffer()
 builtins.text=text
 builtins.menu=menu
 builtins.form=form
+builtins.popup_menu=popup_menu
+builtins.function_buffer = function_buffer
 
 nav = Nav(disp_out=display, chrs=chrs)
 builtins.nav=nav
 
-text_refresh=text_tbf(disp_out=display, chrs=chrs, t_b=text)
+text_refresh=text_tbf(disp_out=display, chrs=chrs, t_b=text, selection_provider=function_buffer.selection_range)
 menu_refresh=menu_tbf(disp_out=display, chrs=chrs, m_b=menu)
 form_refresh=form_tbf(disp_out=display, chrs=chrs, buffer_klass=form)
+popup_refresh=menu_tbf(disp_out=display, chrs=chrs, m_b=popup_menu)
 builtins.text_refresh=text_refresh
 builtins.menu_refresh=menu_refresh
 builtins.form_refresh=form_refresh
+builtins.popup_refresh=popup_refresh
 
 app=App()
 builtins.app=App()

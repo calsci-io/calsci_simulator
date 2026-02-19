@@ -30,4 +30,3 @@ def update_sleep_time(time):
 
 def keypad_normal():
     opin = machine.Pin(21, machine.Pin.OUT, value=1, hold=False)
-

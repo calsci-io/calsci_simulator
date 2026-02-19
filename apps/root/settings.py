@@ -27,7 +27,7 @@ def settings():
         while True:
             inp_menu = typer.start_typing()
 
-            if inp_menu == "back":
+            if inp_menu == "back" or inp_menu == "home":
                 # current_app[0]="home"
                 # current_app[1]="application_modules"
                 app.set_app_name("home")
