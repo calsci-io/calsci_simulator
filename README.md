@@ -3,10 +3,10 @@
 Calsci simulator is a program that mimics the behaviour of the calsci, allowing users to write application on the simulator without the requirement of a physical calsci device. 
 
 <p align="center">
-<img height="300" alt="Screenshot from 2026-02-20 01-13-57" src="https://github.com/user-attachments/assets/e475f57d-22a1-451f-a77f-10ef8dcb93bb" />
-<img height="300" alt="image" src="https://github.com/user-attachments/assets/0f759eb6-8574-42c2-b6a0-1eb8b601bebb" />
-<img height="300" alt="Screenshot from 2026-02-20 01-15-08" src="https://github.com/user-attachments/assets/93401a3e-8511-473a-a85b-f5aa5aa16a52" />
-<img height="300" alt="image" src="https://github.com/user-attachments/assets/9c8f0fdc-bc3a-4d88-800c-1b82e63208e0" />
+<img height="400" alt="Screenshot from 2026-02-20 01-13-57" src="https://github.com/user-attachments/assets/e475f57d-22a1-451f-a77f-10ef8dcb93bb" />
+<img height="400" alt="image" src="https://github.com/user-attachments/assets/0f759eb6-8574-42c2-b6a0-1eb8b601bebb" />
+<img height="400" alt="Screenshot from 2026-02-20 01-15-08" src="https://github.com/user-attachments/assets/93401a3e-8511-473a-a85b-f5aa5aa16a52" />
+<img height="400" alt="image" src="https://github.com/user-attachments/assets/9c8f0fdc-bc3a-4d88-800c-1b82e63208e0" />
 </p>
 
 ## How to run
