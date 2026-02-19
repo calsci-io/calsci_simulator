@@ -4,8 +4,33 @@ Calsci simulator is a program that mimics the behaviour of the calsci, allowing 
 
 
 ## How to run
-1. Run the `watcher.py` file. This script reruns the calsci simulator every time there is any changes in the codebase.
-
+1. Clone this github repo.
 ```bash
-python watcher.py
+git clone https://github.com/calsci-io/calsci_simulator.git
+```
+
+2. Go inside this repo.
+```bash
+cd calsci_simulator
+```
+
+3. Create a virtual environment.
+```bash
+python -m venv venv
+```
+
+4. Activate the virtual environment.
+```bash
+source venv/bin/activate
+```
+
+5. Install all the dependencies.
+```bash
+pip install -r requirements.txt
+```
+
+
+6. Run the main file.
+```bash
+python main.py
 ```
