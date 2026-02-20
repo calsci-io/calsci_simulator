@@ -1,7 +1,7 @@
 import pygame
 pygame.init()
 pygame.font.init()
-pygame.display.set_caption("Keyboard")
+pygame.display.set_caption("CalSci Simulator")
 import ui as rc
 from ui import Button
 from utility.keymap import Keypad
