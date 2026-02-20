@@ -18,6 +18,7 @@ Just make sure these softwares are already installed in your system.
 - Python 3.10 or above
 - git
   
+### Steps:
 
 1. Clone this github repo.
 ```bash
