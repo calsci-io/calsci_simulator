@@ -10,6 +10,15 @@ Calsci simulator is a program that mimics the behaviour of the calsci, allowing 
 </p>
 
 ## How to run
+If you are using **Ubuntu** ,some other **linux** distro or **Apple Mac**, the below commands can be run as it is.  
+If you are using **Windows** then you need to run them in [Git Bash](https://git-scm.com/install/windows)
+
+Just make sure these softwares are already installed in your system.
+
+- Python 3.10 or above
+- git
+  
+
 1. Clone this github repo.
 ```bash
 git clone https://github.com/calsci-io/calsci_simulator.git
