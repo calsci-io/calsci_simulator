@@ -118,7 +118,7 @@ class Typer:
                         val = KB.get_char(key)
                         print(key, "key")
                         print(val, "val")
-                        if key in [KB.ONE, KB.ZERO, KB.TWO, KB.THREE, KB.FOUR, KB.FIVE, KB.SIX, KB.SEVEN, KB.EIGHT, KB.NINE]:
+                        if key in [KB.ONE, KB.ZERO, KB.TWO, KB.THREE, KB.FOUR, KB.FIVE, KB.SIX, KB.SEVEN, KB.EIGHT, KB.NINE, KB.MULTIPLY, KB.PLUS, KB.MINUS, KB.DIVIDE]:
                             val = key
 
                         if self.is_caps and val in [KB.A, KB.B, KB.C, KB.D, KB.E, KB.F, KB.G, KB.H, KB.I, KB.J, KB.K, KB.L, KB.M, KB.N, KB.O, KB.P, KB.Q, KB.R, KB.S, KB.T, KB.U, KB.V, KB.W, KB.X, KB.Y, KB.Z]:
