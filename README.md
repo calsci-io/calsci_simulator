@@ -1,12 +1,12 @@
 # Calsci Simulator
 
-Calsci simulator is a program that mimics the behaviour of the calsci, allowing users to write application on the simulator without the requirement of a physical calsci device. 
+Experience CalSci virtually on your Desktop.
 
 <p align="center">
-<img height="400" alt="Screenshot from 2026-02-20 01-13-57" src="https://github.com/user-attachments/assets/e475f57d-22a1-451f-a77f-10ef8dcb93bb" />
-<img height="400" alt="image" src="https://github.com/user-attachments/assets/0f759eb6-8574-42c2-b6a0-1eb8b601bebb" />
-<img height="400" alt="Screenshot from 2026-02-20 01-15-08" src="https://github.com/user-attachments/assets/93401a3e-8511-473a-a85b-f5aa5aa16a52" />
-<img height="400" alt="image" src="https://github.com/user-attachments/assets/9c8f0fdc-bc3a-4d88-800c-1b82e63208e0" />
+<img height="400" alt="Screenshot from 2026-02-20 17-03-38" src="https://github.com/user-attachments/assets/409c8d96-cee3-42ac-ae14-93e5ea4c0539" />
+<img height="400" alt="Screenshot from 2026-02-20 17-03-48" src="https://github.com/user-attachments/assets/0feed262-ef2e-4cc2-a47e-55ff15724c57" />
+<img height="400" alt="Screenshot from 2026-02-20 17-04-14" src="https://github.com/user-attachments/assets/e343004b-901f-48f1-a0e4-15d9d0c22107" />
+<img height="400" alt="Screenshot from 2026-02-20 17-04-21" src="https://github.com/user-attachments/assets/36833bd9-51bd-4349-afe6-debf4c835762" />
 </p>
 
 ## How to run
