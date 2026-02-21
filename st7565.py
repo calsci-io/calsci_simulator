@@ -5,6 +5,8 @@ import sim_ui
 _DISPLAY_WIDTH = 128
 _DISPLAY_HEIGHT = 64
 _PAGE_COUNT = 8
+# ST7565 controller RAM is 132 columns wide, while only 128 are visible.
+_RAM_WIDTH = 132
 
 _page = 0
 _col = 0
@@ -24,7 +26,7 @@ def set_page_address(page: int):
 
 def set_column_address(col: int):
     global _col
-    _col = max(0, min(_DISPLAY_WIDTH - 1, int(col)))
+    _col = max(0, min(_RAM_WIDTH - 1, int(col)))
 
 
 def _consume_contrast_if_needed(value: int):
@@ -48,11 +50,11 @@ def write_instruction(cmd: int):
         return
 
     if 0x10 <= cmd <= 0x1F:
-        _col = ((_col & 0x0F) | ((cmd & 0x0F) << 4)) % _DISPLAY_WIDTH
+        _col = ((_col & 0x0F) | ((cmd & 0x0F) << 4)) % _RAM_WIDTH
         return
 
     if 0x00 <= cmd <= 0x0F:
-        _col = ((_col & 0xF0) | (cmd & 0x0F)) % _DISPLAY_WIDTH
+        _col = ((_col & 0xF0) | (cmd & 0x0F)) % _RAM_WIDTH
         return
 
     if cmd == 0xA7:
@@ -80,8 +82,10 @@ def write_instruction(cmd: int):
 def write_data(data: int):
     global _col
     sim_ui.poll_events()
-    sim_ui.write_page_byte(_page, _col, int(data) & 0xFF)
-    _col = (_col + 1) % _DISPLAY_WIDTH
+    # Writes beyond visible 128 columns are accepted by controller RAM but hidden.
+    if 0 <= _col < _DISPLAY_WIDTH:
+        sim_ui.write_page_byte(_page, _col, int(data) & 0xFF)
+    _col = (_col + 1) % _RAM_WIDTH
 
 
 def clear_display():
