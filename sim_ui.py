@@ -3,11 +3,12 @@ from __future__ import annotations
 import time
 from collections import deque
 from pathlib import Path
+from typing import Optional
 
 import pygame
 
 # -----------------------------------------------------------------------------
-# UI constants (ported to match calsci_simulator look)
+# UI constants (ported from calsci_simulator)
 # -----------------------------------------------------------------------------
 
 SCREEN_WIDTH = 450
@@ -15,9 +16,13 @@ SCREEN_HEIGHT = 950
 
 DISPLAY_TOP_MARGIN = 85
 DISPLAY_BEZEL_PADDING = 16
+DISPLAY_SIDE_PADDING = 16
+
 CASE_PADDING = 10
 CASE_RADIUS = 32
+
 KEYPAD_TOP_GAP = 14
+SYSTEM_TO_MAIN_GAP = 12
 
 CASE_DARK = (24, 26, 30)
 CASE_MID = (36, 38, 43)
@@ -26,12 +31,11 @@ BEZEL_DARK = (22, 23, 27)
 BEZEL_MID = (36, 38, 42)
 LABEL_BG = (230, 230, 230)
 LABEL_TEXT = (40, 40, 40)
+LABEL_FONT_SIZE = 16
 
-# Display pixel colors
 LCD_ON = (20, 30, 36)
 LCD_OFF = (180, 210, 222)
 
-# Key styling
 BUTTON_BORDER = (85, 85, 85)
 BUTTON_SHADOW = (140, 140, 140)
 BUTTON_SHADOW_PRESSED = (95, 95, 95)
@@ -39,18 +43,37 @@ BUTTON_BG = (230, 230, 230)
 BUTTON_BG_PRESSED = (200, 200, 200)
 KEY_TEXT = (0, 0, 0)
 
-# Virtual LCD
+# Display geometry
 LCD_WIDTH = 128
 LCD_HEIGHT = 64
 BASE_PIXEL_SIZE = 3
 BASE_PIXEL_GAP = 0
 
-# Key matrix pin mapping (must match calsci_latest_itr input_modules/keypad.py)
+# Key layout constants (from calsci_simulator/utility/typer.py)
+SYSTEM_KEY = 40
+SYSTEM_GAP_X = 12
+SYSTEM_GAP_Y = 8
+
+NAV_OK = 50
+NAV_LR_W = 50
+NAV_LR_H = NAV_LR_W
+NAV_GAP = 4
+NAV_UD_W = NAV_LR_W
+NAV_UD_H = NAV_LR_W
+NAV_OFFSET_X = -6
+NAV_OFFSET_Y = -2
+
+MAIN_KEY = 50
+MAIN_GAP_X = 5
+MAIN_GAP_Y = 16
+
+# Matrix pin mapping used by calsci_latest_itr/input_modules/keypad.py
 ROW_PINS = [14, 21, 47, 48, 38, 39, 40, 41, 42, 1]
 COL_PINS = [8, 18, 17, 15, 7]
 KEY_ROWS = 10
 KEY_COLS = 5
 
+# Keypad state layouts from calsci_latest_itr/data_modules/keypad_map.py
 KEYPAD_DEFAULT = [
     ["on", "alpha", "beta", "home", "wifi"],
     ["backlight", "back", "toolbox", "diff()", "ln()"],
@@ -91,45 +114,48 @@ KEYPAD_BETA = [
 ]
 
 KEY_SYMBOLS = {
+    "rst": "RST",
+    "bt": "Boot",
     "on": "ON",
     "alpha": "α",
     "beta": "β",
     "home": "⌂",
     "wifi": "📶",
+    "tab": "tab",
     "backlight": "🔆",
     "back": "↩",
     "toolbox": "🧰",
     "diff()": "d/dx",
     "ln()": "ln",
-    "nav_l": "←",
-    "nav_d": "↓",
-    "nav_r": "→",
-    "nav_u": "↑",
-    "nav_b": "DEL",
-    "ok": "OK",
     "module": "|x|",
     "bluetooth": "🅱",
     "sin()": "sin",
     "cos()": "cos",
     "tan()": "tan",
+    "asin(": "sin⁻¹",
+    "acos(": "cos⁻¹",
+    "atan(": "tan⁻¹",
     "igtn()": "∫",
     "pi": "π",
     "summation": "∑",
     "fraction": "a⁄b",
+    "log": "log",
     "pow(,)": "xʸ",
     "pow( ,0.5)": "√",
     "pow( ,2)": "x²",
+    "S_D": "S↔D",
+    "nav_u": "↑",
+    "nav_d": "↓",
+    "nav_l": "←",
+    "nav_r": "→",
+    "nav_b": "DEL",
     "ans": "ANS",
     "exe": "EXE",
     "caps": "caps",
-    "off": "off",
-    "tab": "tab",
+    "undo": "undo",
     "copy": "❏",
     "paste": "📋",
-    "asin(": "sin⁻¹",
-    "acos(": "cos⁻¹",
-    "atan(": "tan⁻¹",
-    "S_D": "S↔D",
+    "off": "off",
 }
 
 ASSET_CANDIDATES = [
@@ -138,11 +164,19 @@ ASSET_CANDIDATES = [
 ]
 
 
+# Build lookup from key name -> (row, col) in matrix.
+KEY_TO_COORD = {}
+for _r, _row in enumerate(KEYPAD_DEFAULT):
+    for _c, _key in enumerate(_row):
+        KEY_TO_COORD[_key] = (_r, _c)
+
+
 class _KeyWidget:
-    def __init__(self, row: int, col: int, widget):
+    def __init__(self, widget, widget_id: int, row: Optional[int], col: Optional[int]):
+        self.widget = widget
+        self.widget_id = widget_id
         self.row = row
         self.col = col
-        self.widget = widget
 
 
 class _UIState:
@@ -160,7 +194,7 @@ class _UIState:
 
         self.key_widgets = []
         self.pending_keys = deque()
-        self.last_key = None
+        self.last_widget_id = None
         self.last_key_ts = 0.0
 
         self.row_levels = {pin: 1 for pin in ROW_PINS}
@@ -178,10 +212,6 @@ class _UIState:
 
 STATE = _UIState()
 
-
-# -----------------------------------------------------------------------------
-# UI helpers
-# -----------------------------------------------------------------------------
 
 def _load_font(name: str, size: int):
     for candidate in ASSET_CANDIDATES:
@@ -247,7 +277,7 @@ def _display_rect(screen):
     return pygame.Rect(x, y, display_w, display_h)
 
 
-def _symbol(key):
+def _symbol(key: str):
     return KEY_SYMBOLS.get(key, key)
 
 
@@ -310,7 +340,7 @@ def _draw_shell(screen):
     label_radius = scale_value(6, screen, min_value=0)
     pygame.draw.rect(screen, LABEL_BG, (label_x, label_y, label_w, label_h), border_radius=label_radius)
 
-    brand_font = _load_font("DejaVuSans.ttf", max(8, scale_value(16, screen, min_value=1)))
+    brand_font = _load_font("DejaVuSans.ttf", max(8, scale_value(LABEL_FONT_SIZE, screen, min_value=1)))
     text = brand_font.render("CalSci", True, LABEL_TEXT)
     screen.blit(text, text.get_rect(center=(label_x + label_w // 2, label_y + label_h // 2)))
 
@@ -399,72 +429,141 @@ class OtherButton(Button):
         screen.blit(main, main_rect)
 
 
-# -----------------------------------------------------------------------------
-# Build interactive key widgets
-# -----------------------------------------------------------------------------
+def _alpha_beta_labels_for(default_key: str):
+    coord = KEY_TO_COORD.get(default_key)
+    if coord is None:
+        return "", ""
+
+    row, col = coord
+    alpha = KEYPAD_ALPHA[row][col]
+    beta = KEYPAD_BETA[row][col]
+
+    alpha_label = _symbol(alpha) if alpha != default_key else ""
+    beta_label = _symbol(beta) if beta != default_key else ""
+    return alpha_label, beta_label
+
 
 def _build_key_widgets(screen):
     _, _, display_w, display_h = _display_metrics(screen)
-
     screen_w = screen.get_width()
-    screen_h = screen.get_height()
 
-    keypad_top = (
+    left_margin = (screen_w - display_w) // 2
+    display_bottom = (
         scale_value(DISPLAY_TOP_MARGIN, screen, min_value=0)
         + display_h
         + scale_value(DISPLAY_BEZEL_PADDING, screen, min_value=0) * 2
-        + scale_value(KEYPAD_TOP_GAP, screen, min_value=0)
     )
-
-    margin_bottom = scale_value(20, screen, min_value=0)
-    available_h = max(120, screen_h - keypad_top - margin_bottom)
-
-    gap_x = scale_value(8, screen, min_value=1)
-    gap_y = scale_value(8, screen, min_value=1)
-
-    key_w = (display_w - (KEY_COLS - 1) * gap_x) // KEY_COLS
-    key_h = (available_h - (KEY_ROWS - 1) * gap_y) // KEY_ROWS
-
-    # Keep keys in a reasonable range similar to reference UI.
-    key_w = max(44, min(key_w, 72))
-    key_h = max(38, min(key_h, 68))
-
-    grid_w = KEY_COLS * key_w + (KEY_COLS - 1) * gap_x
-    grid_h = KEY_ROWS * key_h + (KEY_ROWS - 1) * gap_y
-
-    keypad_x = (screen_w - grid_w) // 2
-    keypad_y = keypad_top + max(0, (available_h - grid_h) // 2)
+    top_start = display_bottom + scale_value(KEYPAD_TOP_GAP, screen, min_value=0)
 
     widgets = []
+    wid = 0
 
-    for row in range(KEY_ROWS):
-        for col in range(KEY_COLS):
-            x = keypad_x + col * (key_w + gap_x)
-            y = keypad_y + row * (key_h + gap_y)
+    def add_button(key, x, y, width, height, shape="rect", other=False, row=None, col=None):
+        nonlocal wid
+        label = _symbol(key)
+        mapped_row, mapped_col = row, col
+        if mapped_row is None or mapped_col is None:
+            coord = KEY_TO_COORD.get(key)
+            if coord is not None:
+                mapped_row, mapped_col = coord
 
-            default_label = _symbol(KEYPAD_DEFAULT[row][col])
-            alpha_label = _symbol(KEYPAD_ALPHA[row][col])
-            beta_label = _symbol(KEYPAD_BETA[row][col])
+        if other:
+            alpha_label, beta_label = _alpha_beta_labels_for(key)
+            btn = OtherButton(label, alpha_label, beta_label, width, height, x, y)
+        else:
+            btn = Button(label, width, height, x, y, shape=shape)
 
-            # Top control rows use single label buttons in the reference UI style.
-            if row <= 2:
-                shape = "circle" if KEYPAD_DEFAULT[row][col] in {"module", "bluetooth"} else "rect"
-                btn = Button(default_label, key_w, key_h, x, y, shape=shape)
-            else:
-                if alpha_label == default_label:
-                    alpha_label = ""
-                if beta_label == default_label:
-                    beta_label = ""
-                btn = OtherButton(default_label, alpha_label, beta_label, key_w, key_h, x, y)
+        widgets.append(_KeyWidget(btn, wid, mapped_row, mapped_col))
+        wid += 1
 
-            widgets.append(_KeyWidget(row=row, col=col, widget=btn))
+    # ---------------- System + Nav clusters ----------------
+    system_h = scale_value(SYSTEM_KEY, screen, min_value=1)
+    system_w = system_h
+    system_gap_x = scale_value(SYSTEM_GAP_X, screen, min_value=1)
+    system_gap_y = scale_value(SYSTEM_GAP_Y, screen, min_value=1)
+
+    system_cols = 3
+    system_width = system_cols * system_w + (system_cols - 1) * system_gap_x
+
+    nav_ok_size = scale_value(NAV_OK, screen, min_value=1)
+    nav_lr_w = scale_value(NAV_LR_W, screen, min_value=1)
+    nav_lr_h = scale_value(NAV_LR_H, screen, min_value=1)
+    nav_gap = scale_value(NAV_GAP, screen, min_value=1)
+    nav_ud_w = scale_value(NAV_UD_W, screen, min_value=1)
+    nav_ud_h = scale_value(NAV_UD_H, screen, min_value=1)
+    nav_width = nav_lr_w + nav_gap + nav_ok_size + nav_gap + nav_lr_w
+    nav_height = nav_ud_h + nav_gap + nav_ok_size + nav_gap + nav_ud_h
+
+    top_gap = display_w - system_width - nav_width
+    top_gap = max(top_gap, system_gap_x)
+    system_start_x = left_margin
+    nav_left_edge = system_start_x + system_width + top_gap + scale_value(NAV_OFFSET_X, screen, min_value=-1000)
+    system_block_h = 3 * system_h + 2 * system_gap_y
+    system_y_start = top_start
+    nav_top_edge = system_y_start + (system_block_h - nav_height) // 2 + scale_value(NAV_OFFSET_Y, screen, min_value=-1000)
+
+    nav_ok_x = nav_left_edge + nav_lr_w + nav_gap
+    nav_ok_y = nav_top_edge + nav_ud_h + nav_gap
+    nav_ud_x = nav_left_edge + (nav_width - nav_ud_w) // 2
+    nav_lr_y = nav_ok_y + (nav_ok_size - nav_lr_h) // 2
+
+    add_button("ok", nav_ok_x, nav_ok_y, nav_ok_size, nav_ok_size)
+    add_button("nav_u", nav_ud_x, nav_top_edge, nav_ud_w, nav_ud_h)
+    add_button("nav_d", nav_ud_x, nav_ok_y + nav_ok_size + nav_gap, nav_ud_w, nav_ud_h)
+    add_button("nav_l", nav_left_edge, nav_lr_y, nav_lr_w, nav_lr_h)
+    add_button("nav_r", nav_left_edge + nav_lr_w + nav_gap + nav_ok_size + nav_gap, nav_lr_y, nav_lr_w, nav_lr_h)
+
+    system_rows = [
+        ["on", "rst", "bt"],
+        ["alpha", "beta", "home"],
+        ["back", "backlight", "wifi"],
+    ]
+
+    for i, row_keys in enumerate(system_rows):
+        y = system_y_start + (system_h + system_gap_y) * i
+        for j, key in enumerate(row_keys):
+            x = system_start_x + j * (system_w + system_gap_x)
+            shape = "circle" if key in {"rst", "bt"} else "rect"
+            add_button(key, x, y, system_w, system_h, shape=shape)
+
+    # ---------------- Main sections ----------------
+    main_h = scale_value(MAIN_KEY, screen, min_value=1)
+    main_w = main_h
+    main_gap_x = scale_value(MAIN_GAP_X, screen, min_value=1)
+    main_gap_y = scale_value(MAIN_GAP_Y, screen, min_value=1)
+
+    section_1_layouts = [
+        ["toolbox", "module", "bluetooth", "sin()", "cos()", "tan()"],
+        ["diff()", "igtn()", "pi", "e", "summation", "fraction"],
+        ["ln()", "log", "pow(,)", "pow( ,0.5)", "pow( ,2)", "S_D"],
+    ]
+
+    section_2_layouts = [
+        ["7", "8", "9", "nav_b", "AC"],
+        ["4", "5", "6", "*", "/"],
+        ["1", "2", "3", "+", "-"],
+        [".", "0", ",", "ans", "exe"],
+    ]
+
+    section_1_gap_x = max(int((display_w - (6 * main_w)) / 5), main_gap_x)
+    section_1_y_start = top_start + system_block_h + scale_value(SYSTEM_TO_MAIN_GAP, screen, min_value=0)
+
+    for i, row_keys in enumerate(section_1_layouts):
+        y = section_1_y_start + i * (main_h + main_gap_y)
+        for j, key in enumerate(row_keys):
+            x = left_margin + j * (main_w + section_1_gap_x)
+            add_button(key, x, y, main_w, main_h, other=True)
+
+    section_2_y_start = int(section_1_y_start + 3.0 * (main_h + main_gap_y))
+    for i, row_keys in enumerate(section_2_layouts):
+        y = section_2_y_start + i * (main_h + main_gap_y)
+        section_2_gap_x = max(int((display_w - (5 * main_w)) / 4), main_gap_x + scale_value(20, screen, min_value=0))
+        for j, key in enumerate(row_keys):
+            x = left_margin + j * (main_w + section_2_gap_x)
+            add_button(key, x, y, main_w, main_h, other=True)
 
     return widgets
 
-
-# -----------------------------------------------------------------------------
-# Public simulator API used by machine/st7565 shims
-# -----------------------------------------------------------------------------
 
 def ensure_ui():
     if STATE.initialized:
@@ -484,18 +583,18 @@ def ensure_ui():
     render(force=True)
 
 
-def _queue_key(row_idx: int, col_idx: int):
+def _queue_key(row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     _play_click()
     STATE.pending_keys.append((row_idx, col_idx))
-    STATE.last_key = (row_idx, col_idx)
+    STATE.last_widget_id = widget_id
     STATE.last_key_ts = time.monotonic()
 
 
 def _keyboard_shortcuts():
     return {
-        pygame.K_RETURN: (2, 3),  # ok
-        pygame.K_BACKSPACE: (1, 1),  # back
-        pygame.K_ESCAPE: (0, 3),  # home
+        pygame.K_RETURN: (2, 3),
+        pygame.K_BACKSPACE: (1, 1),
+        pygame.K_ESCAPE: (0, 3),
         pygame.K_UP: (2, 4),
         pygame.K_DOWN: (2, 1),
         pygame.K_LEFT: (2, 0),
@@ -513,7 +612,12 @@ def poll_events():
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for item in STATE.key_widgets:
                 if item.widget.is_clicked(event.pos):
-                    _queue_key(item.row, item.col)
+                    if item.row is not None and item.col is not None:
+                        _queue_key(item.row, item.col, widget_id=item.widget_id)
+                    else:
+                        _play_click()
+                        STATE.last_widget_id = item.widget_id
+                        STATE.last_key_ts = time.monotonic()
                     break
 
         if event.type == pygame.KEYDOWN:
@@ -521,7 +625,7 @@ def poll_events():
                 raise SystemExit(0)
             shortcut = _keyboard_shortcuts().get(event.key)
             if shortcut:
-                _queue_key(shortcut[0], shortcut[1])
+                _queue_key(shortcut[0], shortcut[1], widget_id=None)
 
     if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < 0.15:
         render(force=False)
@@ -617,15 +721,15 @@ def render(force: bool = False):
         return
 
     _ensure_fonts(get_scale(STATE.screen))
-
     _draw_shell(STATE.screen)
     _draw_lcd_pixels()
 
     disp = _display_rect(STATE.screen)
-    STATE.screen.blit(pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height)), (disp.x, disp.y))
+    scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
+    STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
     for item in STATE.key_widgets:
-        pressed = STATE.last_key == (item.row, item.col) and (now - STATE.last_key_ts) < 0.15
+        pressed = (STATE.last_widget_id == item.widget_id) and ((now - STATE.last_key_ts) < 0.15)
         item.widget.draw(STATE.screen, pressed=pressed)
 
     pygame.display.flip()
