@@ -172,6 +172,8 @@ class _UIState:
 
         self.dirty = True
         self.last_render = 0.0
+        self.click_sound = None
+        self.click_sound_ready = False
 
 
 STATE = _UIState()
@@ -187,6 +189,35 @@ def _load_font(name: str, size: int):
         if path.exists():
             return pygame.font.Font(str(path), size)
     return pygame.font.Font(None, size)
+
+
+def _load_click_sound():
+    if STATE.click_sound_ready:
+        return STATE.click_sound
+
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+        for candidate in ASSET_CANDIDATES:
+            sound_path = candidate / "click.wav"
+            if sound_path.exists():
+                STATE.click_sound = pygame.mixer.Sound(str(sound_path))
+                STATE.click_sound.set_volume(0.4)
+                break
+    except Exception:
+        STATE.click_sound = None
+
+    STATE.click_sound_ready = True
+    return STATE.click_sound
+
+
+def _play_click():
+    sound = _load_click_sound()
+    if sound:
+        try:
+            sound.play()
+        except Exception:
+            pass
 
 
 def get_scale(screen):
@@ -454,6 +485,7 @@ def ensure_ui():
 
 
 def _queue_key(row_idx: int, col_idx: int):
+    _play_click()
     STATE.pending_keys.append((row_idx, col_idx))
     STATE.last_key = (row_idx, col_idx)
     STATE.last_key_ts = time.monotonic()
