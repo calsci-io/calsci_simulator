@@ -117,9 +117,34 @@ def on():
     sim_ui.set_display_on(True)
 
 
-def graphics(framebuffer):
+def graphics(framebuffer, *, page=0, column=0, width=None, pages=None):
     sim_ui.poll_events()
 
+    if width is None:
+        width = _DISPLAY_WIDTH
+    if pages is None:
+        pages = _PAGE_COUNT
+
+    page = int(page)
+    column = int(column)
+    width = int(width)
+    pages = int(pages)
+
+    # Match firmware module contract used by graph app: region writes by page/column.
+    if page < 0 or page >= _PAGE_COUNT:
+        raise ValueError("page out of range")
+    if column < 0 or column >= _DISPLAY_WIDTH:
+        raise ValueError("column out of range")
+    if width <= 0 or width > _DISPLAY_WIDTH:
+        raise ValueError("width out of range")
+    if pages <= 0 or pages > _PAGE_COUNT:
+        raise ValueError("pages out of range")
+    if column + width > _DISPLAY_WIDTH:
+        raise ValueError("column + width exceeds display")
+    if page + pages > _PAGE_COUNT:
+        raise ValueError("page + pages exceeds display")
+
+    # Support either raw bytes-like input or a framebuffer object with .buffer.
     if hasattr(framebuffer, "buffer"):
         raw = framebuffer.buffer
     else:
@@ -130,10 +155,17 @@ def graphics(framebuffer):
     except Exception:
         return
 
-    target_size = _DISPLAY_WIDTH * _DISPLAY_HEIGHT // 8
-    if len(data) < target_size:
-        data = data + b"\x00" * (target_size - len(data))
-    sim_ui.set_framebuffer(data[:target_size])
+    expected_size = width * pages
+    if len(data) < expected_size:
+        data = data + b"\x00" * (expected_size - len(data))
+    elif len(data) > expected_size:
+        data = data[:expected_size]
+
+    idx = 0
+    for page_idx in range(page, page + pages):
+        for col_idx in range(column, column + width):
+            sim_ui.write_page_byte(page_idx, col_idx, data[idx])
+            idx += 1
 
 
 # Some code conditionally inspects this attribute.
