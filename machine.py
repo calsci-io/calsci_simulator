@@ -306,20 +306,57 @@ class ADC:
 
 
 class PWM:
-    def __init__(self, pin, *, freq=1000, duty_u16=0):
+    def __init__(self, pin, *, freq=1000, duty=None, duty_u16=None, duty_ns=None, invert=False):
         self.pin = pin
-        self._freq = freq
-        self._duty_u16 = duty_u16
+        self._freq = int(freq)
+        self._invert = bool(invert)
+        self._duty = 0
+        self._duty_u16 = 0
+        self._duty_ns = 0
+
+        # Keep constructor behavior close to ESP32 MicroPython:
+        # explicit duty_u16 wins, then duty, then duty_ns.
+        if duty_u16 is not None:
+            self.duty_u16(duty_u16)
+        elif duty is not None:
+            self.duty(duty)
+        elif duty_ns is not None:
+            self.duty_ns(duty_ns)
 
     def freq(self, value=None):
         if value is None:
             return self._freq
         self._freq = int(value)
+        return self._freq
+
+    def duty(self, value=None):
+        # Legacy ESP32 API: 10-bit range [0, 1023]
+        if value is None:
+            return self._duty
+        level = max(0, min(1023, int(value)))
+        self._duty = level
+        self._duty_u16 = level << 6
+        return self._duty
 
     def duty_u16(self, value=None):
         if value is None:
             return self._duty_u16
-        self._duty_u16 = int(value)
+        level = max(0, min(65535, int(value)))
+        self._duty_u16 = level
+        self._duty = level >> 6
+        return self._duty_u16
+
+    def duty_ns(self, value=None):
+        if value is None:
+            return self._duty_ns
+        self._duty_ns = max(0, int(value))
+        return self._duty_ns
+
+    def invert(self, value=None):
+        if value is None:
+            return self._invert
+        self._invert = bool(value)
+        return self._invert
 
     def deinit(self):
         return None
