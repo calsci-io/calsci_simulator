@@ -2,17 +2,43 @@ from __future__ import annotations
 
 import time as _time
 
+import sim_ui
+
+
+_EVENT_POLL_SLICE_SECONDS = 0.01
+
+
+def _sleep_with_events(seconds):
+    seconds = float(seconds)
+    if seconds <= 0:
+        return None
+
+    if not sim_ui.STATE.initialized:
+        return _time.sleep(seconds)
+
+    deadline = _time.monotonic() + seconds
+    while True:
+        sim_ui.poll_events()
+
+        remaining = deadline - _time.monotonic()
+        if remaining <= 0:
+            break
+
+        _time.sleep(min(_EVENT_POLL_SLICE_SECONDS, remaining))
+
+    return None
+
 
 def sleep(seconds):
-    return _time.sleep(seconds)
+    return _sleep_with_events(seconds)
 
 
 def sleep_ms(ms):
-    return _time.sleep(float(ms) / 1000.0)
+    return _sleep_with_events(float(ms) / 1000.0)
 
 
 def sleep_us(us):
-    return _time.sleep(float(us) / 1_000_000.0)
+    return _sleep_with_events(float(us) / 1_000_000.0)
 
 
 def ticks_ms():

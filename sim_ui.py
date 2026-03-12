@@ -162,6 +162,7 @@ ASSET_CANDIDATES = [
     Path(__file__).resolve().parent / "assets",
     Path(__file__).resolve().parent.parent / "calsci_simulator" / "assets",
 ]
+SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "simulator_screen_shots"
 
 
 # Build lookup from key name -> (row, col) in matrix.
@@ -248,6 +249,62 @@ def _play_click():
             sound.play()
         except Exception:
             pass
+
+
+def _display_pixel_on(x: int, y: int) -> bool:
+    page = y >> 3
+    bit = 1 << (y & 7)
+    idx = page * LCD_WIDTH + x
+
+    on = 1 if (STATE.framebuffer[idx] & bit) else 0
+    if STATE.all_points_on:
+        on = 1
+    if STATE.invert:
+        on = 0 if on else 1
+
+    return bool(STATE.display_on and on)
+
+
+def _build_display_svg() -> str:
+    lines = [
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            f'width="{LCD_WIDTH}" height="{LCD_HEIGHT}" '
+            f'viewBox="0 0 {LCD_WIDTH} {LCD_HEIGHT}" '
+            'shape-rendering="crispEdges">'
+        ),
+        '<g fill="#000000">',
+    ]
+
+    for y in range(LCD_HEIGHT):
+        run_start = None
+        for x in range(LCD_WIDTH):
+            if _display_pixel_on(x, y):
+                if run_start is None:
+                    run_start = x
+                continue
+
+            if run_start is not None:
+                lines.append(f'<rect x="{run_start}" y="{y}" width="{x - run_start}" height="1"/>')
+                run_start = None
+
+        if run_start is not None:
+            lines.append(f'<rect x="{run_start}" y="{y}" width="{LCD_WIDTH - run_start}" height="1"/>')
+
+    lines.append("</g>")
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
+def save_display_screenshot() -> Path:
+    SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    millis = int((time.time() % 1.0) * 1000)
+    filename = f"display_{stamp}_{millis:03d}.svg"
+    output_path = SCREENSHOT_DIR / filename
+    output_path.write_text(_build_display_svg(), encoding="utf-8")
+    return output_path
 
 
 def get_scale(screen):
@@ -623,6 +680,14 @@ def poll_events():
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_q and (event.mod & pygame.KMOD_CTRL):
                 raise SystemExit(0)
+            if event.key == pygame.K_s:
+                try:
+                    output_path = save_display_screenshot()
+                except OSError as exc:
+                    print(f"[sim_ui] screenshot failed: {exc}")
+                else:
+                    print(f"[sim_ui] screenshot saved: {output_path}")
+                continue
             shortcut = _keyboard_shortcuts().get(event.key)
             if shortcut:
                 _queue_key(shortcut[0], shortcut[1], widget_id=None)

@@ -90,6 +90,7 @@ def write_data(data: int):
 
 def clear_display():
     sim_ui.clear_framebuffer()
+    sim_ui.render(force=True)
 
 
 def set_contrast(value: int):
@@ -99,6 +100,7 @@ def set_contrast(value: int):
 
 def invert(enabled: bool):
     sim_ui.set_invert(bool(enabled))
+    sim_ui.render(force=True)
 
 
 def set_inverse(enabled: bool):
@@ -107,14 +109,17 @@ def set_inverse(enabled: bool):
 
 def all_points_on(enabled: bool):
     sim_ui.set_all_points_on(bool(enabled))
+    sim_ui.render(force=True)
 
 
 def off():
     sim_ui.set_display_on(False)
+    sim_ui.render(force=True)
 
 
 def on():
     sim_ui.set_display_on(True)
+    sim_ui.render(force=True)
 
 
 def graphics(framebuffer, *, page=0, column=0, width=None, pages=None):
@@ -166,6 +171,8 @@ def graphics(framebuffer, *, page=0, column=0, width=None, pages=None):
         for col_idx in range(column, column + width):
             sim_ui.write_page_byte(page_idx, col_idx, data[idx])
             idx += 1
+
+    sim_ui.render(force=True)
 
 
 # Some code conditionally inspects this attribute.
