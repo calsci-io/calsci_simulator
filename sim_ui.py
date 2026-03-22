@@ -38,6 +38,7 @@ LABEL_FONT_SIZE = 16
 
 LCD_ON = (24, 24, 24)
 LCD_OFF = (105, 106, 104)
+LCD_OFF_BACKGROUND = (92, 92, 92)
 KEY_WELL_BG = (238, 238, 236)
 KEY_PRESS_FILL = (219, 219, 217)
 KEY_PRESS_BORDER = (108, 108, 108)
@@ -177,7 +178,9 @@ BACKGROUND_CANDIDATES = [
 ]
 SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "simulator_screen_shots"
 
-REFERENCE_DISPLAY_RECT = (174, 142, 540, 270)
+# Active LCD plane measured from the inner sharp-edged screen cutout
+# in the reference mockup, not the rounded outer display bezel.
+REFERENCE_DISPLAY_RECT = (191, 150, 508, 264)
 
 # Background-aligned hitboxes over the reference mockup.
 IMAGE_BUTTON_LAYOUT = [
@@ -1011,17 +1014,9 @@ def write_page_byte(page: int, col: int, value: int):
 
 
 def _draw_lcd_pixels():
-    transparent_off = (
-        _load_background_surface() is not None
-        and STATE.display_on
-        and not STATE.invert
-        and not STATE.all_points_on
-    )
-
-    if transparent_off:
-        STATE.lcd_surface.fill((0, 0, 0, 0))
-    else:
-        STATE.lcd_surface.fill((*LCD_OFF, 255))
+    background_mode = _load_background_surface() is not None
+    off_color = LCD_OFF_BACKGROUND if background_mode else LCD_OFF
+    STATE.lcd_surface.fill((*off_color, 255))
 
     for x in range(LCD_WIDTH):
         for page in range(8):
@@ -1035,10 +1030,8 @@ def _draw_lcd_pixels():
                     on = 0 if on else 1
                 if STATE.display_on and on:
                     color = (*LCD_ON, 255)
-                elif transparent_off:
-                    color = (0, 0, 0, 0)
                 else:
-                    color = (*LCD_OFF, 255)
+                    color = (*off_color, 255)
                 STATE.lcd_surface.set_at((x, y_base + bit), color)
 
 
@@ -1070,16 +1063,7 @@ def render(force: bool = False):
 
     disp = _display_rect(STATE.screen)
     scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
-    if _load_background_surface() is not None:
-        clipped_lcd = pygame.Surface((disp.width, disp.height), pygame.SRCALPHA)
-        clipped_lcd.blit(scaled_lcd, (0, 0))
-        mask = pygame.Surface((disp.width, disp.height), pygame.SRCALPHA)
-        radius = max(10, int(round(18 * get_scale(STATE.screen))))
-        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radius)
-        clipped_lcd.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        STATE.screen.blit(clipped_lcd, (disp.x, disp.y))
-    else:
-        STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
+    STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
     for item in STATE.key_widgets:
         amount = _press_amount(now, STATE.last_key_ts) if STATE.last_widget_id == item.widget_id else 0.0
