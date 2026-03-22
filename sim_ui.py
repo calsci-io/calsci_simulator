@@ -11,8 +11,11 @@ import pygame
 # UI constants (ported from calsci_simulator)
 # -----------------------------------------------------------------------------
 
-SCREEN_WIDTH = 450
-SCREEN_HEIGHT = 950
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 900
+
+REFERENCE_WIDTH = 900
+REFERENCE_HEIGHT = 1350
 
 DISPLAY_TOP_MARGIN = 85
 DISPLAY_BEZEL_PADDING = 16
@@ -33,8 +36,8 @@ LABEL_BG = (230, 230, 230)
 LABEL_TEXT = (40, 40, 40)
 LABEL_FONT_SIZE = 16
 
-LCD_ON = (20, 30, 36)
-LCD_OFF = (180, 210, 222)
+LCD_ON = (24, 24, 24)
+LCD_OFF = (105, 106, 104)
 
 BUTTON_BORDER = (85, 85, 85)
 BUTTON_SHADOW = (140, 140, 140)
@@ -75,21 +78,21 @@ KEY_COLS = 5
 
 # Keypad state layouts from calsci_latest_itr/data_modules/keypad_map.py
 KEYPAD_DEFAULT = [
-    ["on", "alpha", "beta", "home", "wifi"],
-    ["backlight", "back", "toolbox", "diff()", "ln()"],
+    ["on", "home", "settings", "back", "lock"],
+    ["beta", "alpha", "toolbox", "fraction", "F1"],
     ["nav_l", "nav_d", "nav_r", "ok", "nav_u"],
-    ["module", "bluetooth", "sin()", "cos()", "tan()"],
-    ["igtn()", "pi", "e", "summation", "fraction"],
-    ["log", "pow(,)", "pow( ,0.5)", "pow( ,2)", "S_D"],
+    ["pi", "log", "sin", "cos", "tan"],
+    ["pow", "root", ",", "(", ")"],
+    ["F2", "F3", "F4", "F5", "F6"],
     ["7", "8", "9", "nav_b", "AC"],
     ["4", "5", "6", "*", "/"],
     ["1", "2", "3", "+", "-"],
-    [".", "0", ",", "ans", "exe"],
+    [".", "0", "*pow(10, )", "ans", "exe"],
 ]
 
 KEYPAD_ALPHA = [
-    ["on", "alpha", "beta", "home", "wifi"],
-    ["backlight", "back", "caps", "f", "l"],
+    ["on", "home", "settings", "back", "lock"],
+    ["beta", "alpha", "caps", "f", "l"],
     ["nav_l", "nav_d", "nav_r", "ok", "nav_u"],
     ["a", "b", "c", "d", "e"],
     ["g", "h", "i", "j", "k"],
@@ -97,58 +100,59 @@ KEYPAD_ALPHA = [
     ["r", "s", "t", "nav_b", "AC"],
     ["u", "v", "w", "*", "/"],
     ["x", "y", "z", "+", "-"],
-    [" ", "off", "tab", "ans", "exe"],
+    ["tab", " ", "", "ans", "exe"],
 ]
 
 KEYPAD_BETA = [
-    ["on", "alpha", "beta", "home", "wifi"],
-    ["backlight", "back", "undo", "=", "$"],
+    ["on", "home", "settings", "back", "lock"],
+    ["beta", "alpha", "undo", "=", "$"],
     ["nav_l", "nav_d", "nav_r", "ok", "nav_u"],
-    ["copy", "paste", "asin(", "acos(", "atan("],
-    ["&", "`", '"', "'", "shot"],
+    ["copy", "paste", "asin", "acos", "atan"],
+    ["&", "`", '"', "'", "\\"],
     ["^", "~", "!", "<", ">"],
     ["[", "]", "%", "nav_b", "AC"],
     ["{", "}", ":", "*", "/"],
-    ["(", ")", ";", "+", "-"],
-    ["@", "?", "\"", "ans", "exe"],
+    ["#", "|", ";", "+", "-"],
+    ["@", "?", "_", "ans", "exe"],
 ]
 
 KEY_SYMBOLS = {
     "rst": "RST",
     "bt": "Boot",
     "on": "ON",
-    "alpha": "α",
     "beta": "β",
+    "alpha": "α",
     "home": "⌂",
+    "settings": "SET",
+    "back": "↩",
+    "lock": "lock",
     "wifi": "📶",
     "tab": "tab",
     "backlight": "🔆",
-    "back": "↩",
     "toolbox": "🧰",
-    "diff()": "d/dx",
-    "ln()": "ln",
-    "module": "|x|",
-    "bluetooth": "🅱",
-    "sin()": "sin",
-    "cos()": "cos",
-    "tan()": "tan",
-    "asin(": "sin⁻¹",
-    "acos(": "cos⁻¹",
-    "atan(": "tan⁻¹",
-    "igtn()": "∫",
-    "pi": "π",
-    "summation": "∑",
     "fraction": "a⁄b",
+    "F1": "F1",
+    "sin": "sin",
+    "cos": "cos",
+    "tan": "tan",
+    "asin": "asin",
+    "acos": "acos",
+    "atan": "atan",
+    "pi": "π",
     "log": "log",
-    "pow(,)": "xʸ",
-    "pow( ,0.5)": "√",
-    "pow( ,2)": "x²",
-    "S_D": "S↔D",
+    "pow": "xʸ",
+    "root": "√",
+    "F2": "F2",
+    "F3": "F3",
+    "F4": "F4",
+    "F5": "F5",
+    "F6": "F6",
     "nav_u": "↑",
     "nav_d": "↓",
     "nav_l": "←",
     "nav_r": "→",
     "nav_b": "DEL",
+    "*pow(10, )": "x10",
     "ans": "ANS",
     "exe": "EXE",
     "caps": "caps",
@@ -162,7 +166,69 @@ ASSET_CANDIDATES = [
     Path(__file__).resolve().parent / "assets",
     Path(__file__).resolve().parent.parent / "calsci_simulator" / "assets",
 ]
+BACKGROUND_CANDIDATES = [
+    Path(__file__).resolve().parent / "Untitled.jpeg",
+    Path(__file__).resolve().parent / "Untitled.jpg",
+]
 SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "simulator_screen_shots"
+
+REFERENCE_DISPLAY_RECT = (174, 142, 540, 270)
+
+# Background-aligned hitboxes over the reference mockup.
+IMAGE_BUTTON_LAYOUT = [
+    ("on", (173, 535, 74, 58), "rect"),
+    ("rst", (254, 536, 57, 57), "circle"),
+    ("bt", (315, 536, 57, 57), "circle"),
+    ("nav_u", (550, 531, 96, 58), "rect"),
+    ("home", (173, 611, 74, 58), "rect"),
+    ("settings", (264, 611, 74, 58), "rect"),
+    ("back", (354, 611, 74, 58), "rect"),
+    ("nav_l", (485, 582, 58, 96), "rect"),
+    ("ok", (551, 592, 80, 80), "circle"),
+    ("nav_r", (643, 582, 58, 96), "rect"),
+    ("alpha", (173, 694, 74, 58), "rect"),
+    ("beta", (264, 694, 74, 58), "rect"),
+    ("lock", (354, 694, 74, 58), "rect"),
+    ("nav_d", (550, 687, 96, 58), "rect"),
+    ("toolbox", (173, 777, 74, 58), "rect"),
+    ("pi", (262, 777, 74, 58), "rect"),
+    ("log", (352, 777, 74, 58), "rect"),
+    ("sin", (442, 777, 74, 58), "rect"),
+    ("cos", (532, 777, 74, 58), "rect"),
+    ("tan", (622, 777, 74, 58), "rect"),
+    ("fraction", (173, 845, 74, 58), "rect"),
+    ("pow", (262, 845, 74, 58), "rect"),
+    ("root", (352, 845, 74, 58), "rect"),
+    (",", (442, 845, 74, 58), "rect"),
+    ("(", (532, 845, 74, 58), "rect"),
+    (")", (622, 845, 74, 58), "rect"),
+    ("F1", (173, 916, 74, 58), "rect"),
+    ("F2", (262, 916, 74, 58), "rect"),
+    ("F3", (352, 916, 74, 58), "rect"),
+    ("F4", (442, 916, 74, 58), "rect"),
+    ("F5", (532, 916, 74, 58), "rect"),
+    ("F6", (622, 916, 74, 58), "rect"),
+    ("7", (173, 993, 74, 58), "rect"),
+    ("8", (262, 993, 74, 58), "rect"),
+    ("9", (352, 993, 74, 58), "rect"),
+    ("nav_b", (533, 993, 74, 58), "rect"),
+    ("AC", (622, 993, 74, 58), "rect"),
+    ("4", (173, 1070, 74, 58), "rect"),
+    ("5", (262, 1070, 74, 58), "rect"),
+    ("6", (352, 1070, 74, 58), "rect"),
+    ("*", (533, 1070, 74, 58), "rect"),
+    ("/", (622, 1070, 74, 58), "rect"),
+    ("1", (173, 1147, 74, 58), "rect"),
+    ("2", (262, 1147, 74, 58), "rect"),
+    ("3", (352, 1147, 74, 58), "rect"),
+    ("+", (533, 1147, 74, 58), "rect"),
+    ("-", (622, 1147, 74, 58), "rect"),
+    (".", (173, 1224, 74, 58), "rect"),
+    ("0", (262, 1224, 74, 58), "rect"),
+    ("*pow(10, )", (352, 1224, 74, 58), "rect"),
+    ("ans", (533, 1224, 74, 58), "rect"),
+    ("exe", (622, 1224, 74, 58), "rect"),
+]
 
 
 # Build lookup from key name -> (row, col) in matrix.
@@ -185,6 +251,10 @@ class _UIState:
         self.initialized = False
         self.screen = None
         self.lcd_surface = None
+        self.background_surface = None
+        self.background_scaled = None
+        self.background_rect = None
+        self.background_scale_key = None
 
         self.main_font = None
         self.label_font = None
@@ -251,6 +321,59 @@ def _play_click():
             pass
 
 
+def _load_background_surface():
+    if STATE.background_surface is not None:
+        return STATE.background_surface
+
+    for path in BACKGROUND_CANDIDATES:
+        if path.exists():
+            try:
+                STATE.background_surface = pygame.image.load(str(path)).convert()
+                break
+            except Exception:
+                STATE.background_surface = None
+
+    return STATE.background_surface
+
+
+def _reference_rect(screen):
+    width, height = screen.get_size()
+    scale = min(width / REFERENCE_WIDTH, height / REFERENCE_HEIGHT)
+    scaled_w = max(1, int(round(REFERENCE_WIDTH * scale)))
+    scaled_h = max(1, int(round(REFERENCE_HEIGHT * scale)))
+    x = (width - scaled_w) // 2
+    y = (height - scaled_h) // 2
+    return pygame.Rect(x, y, scaled_w, scaled_h)
+
+
+def _scale_reference_rect(screen, rect):
+    frame = _reference_rect(screen)
+    scale_x = frame.width / REFERENCE_WIDTH
+    scale_y = frame.height / REFERENCE_HEIGHT
+    x, y, width, height = rect
+    return pygame.Rect(
+        frame.x + int(round(x * scale_x)),
+        frame.y + int(round(y * scale_y)),
+        max(1, int(round(width * scale_x))),
+        max(1, int(round(height * scale_y))),
+    )
+
+
+def _get_scaled_background(screen):
+    background = _load_background_surface()
+    if background is None:
+        return None, None
+
+    target_rect = _reference_rect(screen)
+    scale_key = (target_rect.width, target_rect.height)
+    if STATE.background_scale_key != scale_key or STATE.background_scaled is None:
+        STATE.background_scaled = pygame.transform.smoothscale(background, scale_key)
+        STATE.background_scale_key = scale_key
+        STATE.background_rect = target_rect
+
+    return STATE.background_scaled, target_rect
+
+
 def _display_pixel_on(x: int, y: int) -> bool:
     page = y >> 3
     bit = 1 << (y & 7)
@@ -308,10 +431,10 @@ def save_display_screenshot() -> Path:
 
 
 def get_scale(screen):
-    width, height = screen.get_size()
-    if width <= 0 or height <= 0:
+    frame = _reference_rect(screen)
+    if frame.width <= 0 or frame.height <= 0:
         return 1.0
-    return min(width / SCREEN_WIDTH, height / SCREEN_HEIGHT)
+    return min(frame.width / REFERENCE_WIDTH, frame.height / REFERENCE_HEIGHT)
 
 
 def scale_value(value, screen, min_value=0):
@@ -320,6 +443,10 @@ def scale_value(value, screen, min_value=0):
 
 
 def _display_metrics(screen):
+    if _load_background_surface() is not None:
+        rect = _scale_reference_rect(screen, REFERENCE_DISPLAY_RECT)
+        return 1, 0, rect.width, rect.height
+
     box = scale_value(BASE_PIXEL_SIZE, screen, min_value=1)
     gap = scale_value(BASE_PIXEL_GAP, screen, min_value=0)
     display_w = LCD_WIDTH * (box + gap)
@@ -328,6 +455,9 @@ def _display_metrics(screen):
 
 
 def _display_rect(screen):
+    if _load_background_surface() is not None:
+        return _scale_reference_rect(screen, REFERENCE_DISPLAY_RECT)
+
     _, _, display_w, display_h = _display_metrics(screen)
     x = (screen.get_width() - display_w) // 2
     y = scale_value(DISPLAY_TOP_MARGIN, screen, min_value=0)
@@ -375,6 +505,12 @@ def _font_for_text(text, tiny=False, small=False):
 
 
 def _draw_shell(screen):
+    scaled_background, target_rect = _get_scaled_background(screen)
+    if scaled_background is not None:
+        screen.fill((0, 0, 0))
+        screen.blit(scaled_background, target_rect)
+        return
+
     w, h = screen.get_size()
 
     screen.fill(CASE_DARK)
@@ -486,6 +622,33 @@ class OtherButton(Button):
         screen.blit(main, main_rect)
 
 
+class HotspotButton:
+    def __init__(self, rect, shape="rect"):
+        self.rect = rect
+        self.shape = shape
+
+    def draw(self, screen, pressed=False):
+        if not pressed:
+            return
+
+        overlay = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        fill = (255, 255, 255, 48)
+        stroke = (70, 70, 70, 96)
+
+        if self.shape == "circle":
+            pygame.draw.ellipse(overlay, fill, overlay.get_rect())
+            pygame.draw.ellipse(overlay, stroke, overlay.get_rect(), width=2)
+        else:
+            radius = max(8, min(18, min(self.rect.width, self.rect.height) // 4))
+            pygame.draw.rect(overlay, fill, overlay.get_rect(), border_radius=radius)
+            pygame.draw.rect(overlay, stroke, overlay.get_rect(), width=2, border_radius=radius)
+
+        screen.blit(overlay, self.rect)
+
+    def is_clicked(self, pos):
+        return self.rect.collidepoint(pos)
+
+
 def _alpha_beta_labels_for(default_key: str):
     coord = KEY_TO_COORD.get(default_key)
     if coord is None:
@@ -500,7 +663,25 @@ def _alpha_beta_labels_for(default_key: str):
     return alpha_label, beta_label
 
 
+def _build_image_key_widgets(screen):
+    widgets = []
+    for widget_id, (key, rect, shape) in enumerate(IMAGE_BUTTON_LAYOUT):
+        mapped_row = None
+        mapped_col = None
+        coord = KEY_TO_COORD.get(key)
+        if coord is not None:
+            mapped_row, mapped_col = coord
+
+        button = HotspotButton(_scale_reference_rect(screen, rect), shape=shape)
+        widgets.append(_KeyWidget(button, widget_id, mapped_row, mapped_col))
+
+    return widgets
+
+
 def _build_key_widgets(screen):
+    if _load_background_surface() is not None:
+        return _build_image_key_widgets(screen)
+
     _, _, display_w, display_h = _display_metrics(screen)
     screen_w = screen.get_width()
 
@@ -572,8 +753,8 @@ def _build_key_widgets(screen):
 
     system_rows = [
         ["on", "rst", "bt"],
-        ["alpha", "beta", "home"],
-        ["back", "backlight", "wifi"],
+        ["home", "settings", "back"],
+        ["alpha", "beta", "lock"],
     ]
 
     for i, row_keys in enumerate(system_rows):
@@ -590,16 +771,16 @@ def _build_key_widgets(screen):
     main_gap_y = scale_value(MAIN_GAP_Y, screen, min_value=1)
 
     section_1_layouts = [
-        ["toolbox", "module", "bluetooth", "sin()", "cos()", "tan()"],
-        ["diff()", "igtn()", "pi", "e", "summation", "fraction"],
-        ["ln()", "log", "pow(,)", "pow( ,0.5)", "pow( ,2)", "S_D"],
+        ["toolbox", "pi", "log", "sin", "cos", "tan"],
+        ["fraction", "pow", "root", ",", "(", ")"],
+        ["F1", "F2", "F3", "F4", "F5", "F6"],
     ]
 
     section_2_layouts = [
         ["7", "8", "9", "nav_b", "AC"],
         ["4", "5", "6", "*", "/"],
         ["1", "2", "3", "+", "-"],
-        [".", "0", ",", "ans", "exe"],
+        [".", "0", "*pow(10, )", "ans", "exe"],
     ]
 
     section_1_gap_x = max(int((display_w - (6 * main_w)) / 5), main_gap_x)
@@ -631,7 +812,7 @@ def ensure_ui():
 
     STATE.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("CalSci Latest ITR Simulator")
-    STATE.lcd_surface = pygame.Surface((LCD_WIDTH, LCD_HEIGHT))
+    STATE.lcd_surface = pygame.Surface((LCD_WIDTH, LCD_HEIGHT), pygame.SRCALPHA)
 
     _ensure_fonts(get_scale(STATE.screen))
     STATE.key_widgets = _build_key_widgets(STATE.screen)
@@ -647,15 +828,30 @@ def _queue_key(row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     STATE.last_key_ts = time.monotonic()
 
 
+def _coord_for_key(key: str):
+    coord = KEY_TO_COORD.get(key)
+    if coord is None:
+        return None
+    row, col = coord
+    return (row, col)
+
+
 def _keyboard_shortcuts():
+    shortcuts = {
+        pygame.K_RETURN: "ok",
+        pygame.K_BACKSPACE: "back",
+        pygame.K_DELETE: "nav_b",
+        pygame.K_ESCAPE: "home",
+        pygame.K_UP: "nav_u",
+        pygame.K_DOWN: "nav_d",
+        pygame.K_LEFT: "nav_l",
+        pygame.K_RIGHT: "nav_r",
+    }
     return {
-        pygame.K_RETURN: (2, 3),
-        pygame.K_BACKSPACE: (1, 1),
-        pygame.K_ESCAPE: (0, 3),
-        pygame.K_UP: (2, 4),
-        pygame.K_DOWN: (2, 1),
-        pygame.K_LEFT: (2, 0),
-        pygame.K_RIGHT: (2, 2),
+        keycode: coord
+        for keycode, key_name in shortcuts.items()
+        for coord in [_coord_for_key(key_name)]
+        if coord is not None
     }
 
 
@@ -762,6 +958,18 @@ def write_page_byte(page: int, col: int, value: int):
 
 
 def _draw_lcd_pixels():
+    transparent_off = (
+        _load_background_surface() is not None
+        and STATE.display_on
+        and not STATE.invert
+        and not STATE.all_points_on
+    )
+
+    if transparent_off:
+        STATE.lcd_surface.fill((0, 0, 0, 0))
+    else:
+        STATE.lcd_surface.fill((*LCD_OFF, 255))
+
     for x in range(LCD_WIDTH):
         for page in range(8):
             value = STATE.framebuffer[page * LCD_WIDTH + x]
@@ -772,7 +980,12 @@ def _draw_lcd_pixels():
                     on = 1
                 if STATE.invert:
                     on = 0 if on else 1
-                color = LCD_ON if (STATE.display_on and on) else LCD_OFF
+                if STATE.display_on and on:
+                    color = (*LCD_ON, 255)
+                elif transparent_off:
+                    color = (0, 0, 0, 0)
+                else:
+                    color = (*LCD_OFF, 255)
                 STATE.lcd_surface.set_at((x, y_base + bit), color)
 
 
@@ -791,7 +1004,16 @@ def render(force: bool = False):
 
     disp = _display_rect(STATE.screen)
     scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
-    STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
+    if _load_background_surface() is not None:
+        clipped_lcd = pygame.Surface((disp.width, disp.height), pygame.SRCALPHA)
+        clipped_lcd.blit(scaled_lcd, (0, 0))
+        mask = pygame.Surface((disp.width, disp.height), pygame.SRCALPHA)
+        radius = max(10, int(round(18 * get_scale(STATE.screen))))
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radius)
+        clipped_lcd.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        STATE.screen.blit(clipped_lcd, (disp.x, disp.y))
+    else:
+        STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
     for item in STATE.key_widgets:
         pressed = (STATE.last_widget_id == item.widget_id) and ((now - STATE.last_key_ts) < 0.15)
