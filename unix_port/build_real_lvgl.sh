@@ -8,9 +8,17 @@ set -euo pipefail
 # Keep LVGL flags aligned with your ESP32-S3 integration defaults.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DEFAULT_MPY_FIRMWARE="/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware"
+MPY_FIRMWARE_DIR="${CALSCI_MPY_FIRMWARE:-$DEFAULT_MPY_FIRMWARE}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
-exec make -C "$ROOT_DIR/mpy_firmware/ports/unix" -j"$JOBS" \
+if [[ ! -d "$MPY_FIRMWARE_DIR/ports/unix" ]]; then
+  echo "mpy_firmware unix port not found at: $MPY_FIRMWARE_DIR/ports/unix" >&2
+  echo "Set CALSCI_MPY_FIRMWARE to the correct mpy_firmware root if needed." >&2
+  exit 1
+fi
+
+exec make -C "$MPY_FIRMWARE_DIR/ports/unix" -j"$JOBS" \
   BUILD=build-lvgl \
   USER_C_MODULES=../../lib \
   LV_CONF_PATH=../../lib/lv_binding_micropython/lv_conf.h \

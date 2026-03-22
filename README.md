@@ -24,32 +24,35 @@ python main.py
 Use the dedicated unix runtime when you want CalSci core logic to execute under `mpy_firmware` constraints (no desktop UI).
 
 ```bash
-cd /home/sobik/calsci_org
-mpy_firmware/ports/unix/build-standard/micropython calsci_latest_itr_simulator/unix_port/main.py
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py
 ```
 
 If you need full LVGL (real binding, not stub), use the unix helper that mirrors the ESP32-S3 LVGL integration settings:
 
 ```bash
-calsci_latest_itr_simulator/unix_port/build_real_lvgl.sh
-mpy_firmware/ports/unix/build-lvgl/micropython calsci_latest_itr_simulator/unix_port/main.py
+/home/sobik/calsci_simulator/unix_port/build_real_lvgl.sh
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-lvgl/micropython /home/sobik/calsci_simulator/unix_port/main.py
 ```
 
 ESP32-S3 reference:
 - Firmware build uses `USER_C_MODULES=<repo>/c_modules/micropython.cmake` (CMake flow).
 - Unix port uses `USER_C_MODULES=../../lib` (Make flow) with the same LVGL tuning:
   `LV_CONF_PATH=../../lib/lv_binding_micropython/lv_conf.h` and `LV_CFLAGS=-DLV_COLOR_DEPTH=1`.
+- Override the default firmware path if needed with `CALSCI_MPY_FIRMWARE=/path/to/mpy_firmware`.
 
 Shortcut:
 
 ```bash
-calsci_latest_itr_simulator/main_mpy_lvgl.sh
+/home/sobik/calsci_simulator/main_mpy_lvgl.sh
 ```
+
+This wrapper now opens the desktop simulator window while the real unix-port LVGL runtime is running.
+Use `CALSCI_HEADLESS=1` if you want the old headless behavior.
 
 Smoke test:
 
 ```bash
-mpy_firmware/ports/unix/build-standard/micropython calsci_latest_itr_simulator/unix_port/main.py --smoke
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py --smoke
 ```
 
 ## Controls

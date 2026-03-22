@@ -976,6 +976,13 @@ def clear_keys():
     STATE.pending_keys.clear()
 
 
+def pop_pending_keys():
+    poll_events()
+    items = list(STATE.pending_keys)
+    STATE.pending_keys.clear()
+    return items
+
+
 def request_render():
     STATE.dirty = True
 

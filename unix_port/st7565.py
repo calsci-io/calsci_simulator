@@ -1,3 +1,5 @@
+import os
+
 _DISPLAY_WIDTH = 128
 _DISPLAY_HEIGHT = 64
 _PAGE_COUNT = 8
@@ -15,6 +17,28 @@ _contrast = 32
 _display_on = True
 _inverted = False
 _all_points_on = False
+
+_IPC_DIR = os.getenv("CALSCI_SIM_IPC_DIR")
+_STATE_PATH = (_IPC_DIR + "/display_state.bin") if _IPC_DIR else None
+_TMP_PATH = (_IPC_DIR + "/display_state.tmp") if _IPC_DIR else None
+
+
+def _write_state():
+    if not _STATE_PATH or not _TMP_PATH:
+        return
+
+    try:
+        payload = bytearray(4 + len(buffer))
+        payload[0] = 1
+        payload[1] = 1 if _inverted else 0
+        payload[2] = 1 if _display_on else 0
+        payload[3] = 1 if _all_points_on else 0
+        payload[4:] = buffer
+        with open(_TMP_PATH, "wb") as fh:
+            fh.write(payload)
+        os.rename(_TMP_PATH, _STATE_PATH)
+    except Exception:
+        pass
 
 
 def init(*_pins):
@@ -105,11 +129,13 @@ def write_data(data):
     if 0 <= _col < _DISPLAY_WIDTH:
         _write_page_byte(_page, _col, data)
     _col = (_col + 1) % _RAM_WIDTH
+    _write_state()
 
 
 def clear_display():
     for i in range(len(buffer)):
         buffer[i] = 0
+    _write_state()
 
 
 def set_contrast(value):
@@ -120,6 +146,7 @@ def set_contrast(value):
 def invert(enabled):
     global _inverted
     _inverted = bool(enabled)
+    _write_state()
 
 
 def set_inverse(enabled):
@@ -129,19 +156,23 @@ def set_inverse(enabled):
 def all_points_on(enabled):
     global _all_points_on
     _all_points_on = bool(enabled)
+    _write_state()
 
 
 def off():
     global _display_on
     _display_on = False
+    _write_state()
 
 
 def on():
     global _display_on
     _display_on = True
+    _write_state()
 
 
 def show():
+    _write_state()
     return None
 
 
@@ -149,6 +180,7 @@ def fill(value):
     byte = 0xFF if value else 0x00
     for i in range(len(buffer)):
         buffer[i] = byte
+    _write_state()
 
 
 def pixel(x, y, color=1):
@@ -166,6 +198,7 @@ def pixel(x, y, color=1):
         buffer[idx] |= bit
     else:
         buffer[idx] &= (0xFF ^ bit)
+    _write_state()
 
 
 def _graphics_impl(framebuffer, page=0, column=0, width=None, pages=None):
@@ -213,6 +246,8 @@ def _graphics_impl(framebuffer, page=0, column=0, width=None, pages=None):
         for col_idx in range(column, column + width):
             buffer[base + col_idx] = data[idx]
             idx += 1
+
+    _write_state()
 
 
 class _GraphicsCallable:

@@ -25,7 +25,7 @@ make -C mpy_firmware/ports/unix -j4 \
 This enables the real `lvgl` module from `mpy_firmware/lib/lv_binding_micropython`:
 
 ```bash
-calsci_latest_itr_simulator/unix_port/build_real_lvgl.sh
+/home/sobik/calsci_simulator/unix_port/build_real_lvgl.sh
 ```
 
 ESP32-S3 reference mapping:
@@ -33,46 +33,52 @@ ESP32-S3 reference mapping:
 - Unix build path uses Make + `USER_C_MODULES=../../lib`.
 - Both use LVGL settings equivalent to your firmware setup:
   `LV_CONF_PATH=../../lib/lv_binding_micropython/lv_conf.h` and `LV_CFLAGS=-DLV_COLOR_DEPTH=1`.
+- Default firmware root is `/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware`.
+  Override it with `CALSCI_MPY_FIRMWARE=/path/to/mpy_firmware` if that changes.
 
 ## Run
 
 From repo root:
 
 ```bash
-mpy_firmware/ports/unix/build-standard/micropython calsci_latest_itr_simulator/unix_port/main.py
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py
 ```
 
 Run with full LVGL enabled:
 
 ```bash
-mpy_firmware/ports/unix/build-lvgl/micropython calsci_latest_itr_simulator/unix_port/main.py
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-lvgl/micropython /home/sobik/calsci_simulator/unix_port/main.py
 ```
 
 Or with helper script:
 
 ```bash
-calsci_latest_itr_simulator/unix_port/run_real_lvgl.sh
+/home/sobik/calsci_simulator/unix_port/run_real_lvgl.sh
 ```
+
+The helper script starts a companion desktop viewer by default so you can see the unix-port framebuffer.
+Use `CALSCI_HEADLESS=1` to keep it headless.
 
 Optional:
 
 - Smoke test (imports core modules and exits):
 
 ```bash
-mpy_firmware/ports/unix/build-standard/micropython calsci_latest_itr_simulator/unix_port/main.py --smoke
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py --smoke
 ```
 
 - Skip boot script and run only `calsci_latest_itr/main.py`:
 
 ```bash
-mpy_firmware/ports/unix/build-standard/micropython calsci_latest_itr_simulator/unix_port/main.py --skip-boot
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py --skip-boot
 ```
 
 ## Notes
 
 - This mode is intentionally headless: no desktop calculator window and no click sound.
+- `run_real_lvgl.sh` is the exception: it launches a desktop viewer that mirrors the unix-port framebuffer.
 - `machine` keypad queue helper exists for automated tests:
   - `import machine`
   - `machine.queue_key(col, row)`
-- Desktop `python calsci_latest_itr_simulator/main.py` uses CPython and LVGL stub.
+- Desktop `python /home/sobik/calsci_simulator/main.py` uses CPython and LVGL stub.
   Use `build-lvgl/micropython` if you need complete LVGL APIs.

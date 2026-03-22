@@ -1,3 +1,4 @@
+import os
 import random
 
 
@@ -7,10 +8,48 @@ mem32 = bytearray(1024)
 
 _irq_state = 0
 _cpu_freq = 240000000
+_IPC_DIR = os.getenv("CALSCI_SIM_IPC_DIR")
+_IPC_KEYS_PATH = (_IPC_DIR + "/keys.txt") if _IPC_DIR else None
+_IPC_KEYS_OFFSET = 0
 
 # Default keypad matrix used by calsci_latest_itr/data_modules/object_handler.py
 _MATRIX_ROWS = (14, 21, 47, 48, 38, 39, 40, 41, 42, 1)
 _MATRIX_COLS = (8, 18, 17, 15, 7)
+
+
+def _poll_ipc_keys():
+    global _IPC_KEYS_OFFSET
+
+    if not _IPC_KEYS_PATH:
+        return
+
+    try:
+        stat = os.stat(_IPC_KEYS_PATH)
+    except Exception:
+        return
+
+    if len(stat) > 6 and stat[6] < _IPC_KEYS_OFFSET:
+        _IPC_KEYS_OFFSET = 0
+
+    try:
+        with open(_IPC_KEYS_PATH, "r") as fh:
+            if _IPC_KEYS_OFFSET:
+                fh.seek(_IPC_KEYS_OFFSET)
+            payload = fh.read()
+            _IPC_KEYS_OFFSET = fh.tell()
+    except Exception:
+        return
+
+    for line in payload.splitlines():
+        parts = line.strip().split(",")
+        if len(parts) != 2:
+            continue
+        try:
+            col = int(parts[0])
+            row = int(parts[1])
+        except Exception:
+            continue
+        Pin.queue_key(col=col, row=row)
 
 
 class Pin:
@@ -84,6 +123,8 @@ class Pin:
 
     @classmethod
     def _maybe_read_matrix_col(cls, pin_id):
+        _poll_ipc_keys()
+
         if pin_id not in _MATRIX_COLS:
             return None
 
