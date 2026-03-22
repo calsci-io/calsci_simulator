@@ -38,6 +38,11 @@ LABEL_FONT_SIZE = 16
 
 LCD_ON = (24, 24, 24)
 LCD_OFF = (105, 106, 104)
+KEY_WELL_BG = (238, 238, 236)
+KEY_PRESS_FILL = (219, 219, 217)
+KEY_PRESS_BORDER = (108, 108, 108)
+KEY_PRESS_HILITE = (247, 247, 246)
+KEY_PRESS_SHADE = (118, 118, 118)
 
 BUTTON_BORDER = (85, 85, 85)
 BUTTON_SHADOW = (140, 140, 140)
@@ -282,6 +287,10 @@ class _UIState:
 
 
 STATE = _UIState()
+
+PRESS_HOLD_SECS = 0.05
+PRESS_RELEASE_SECS = 0.10
+PRESS_TOTAL_SECS = PRESS_HOLD_SECS + PRESS_RELEASE_SECS
 
 
 def _load_font(name: str, size: int):
@@ -558,7 +567,7 @@ class Button:
         self.shape = shape
         self.rect = pygame.Rect(pos_x, pos_y, width, height)
 
-    def draw(self, screen, pressed=False):
+    def draw(self, screen, pressed=False, amount=1.0):
         radius = min(self.width, self.height) // 2 if self.shape == "circle" else max(4, min(10, self.height // 5))
 
         shadow_color = BUTTON_SHADOW_PRESSED if pressed else BUTTON_SHADOW
@@ -587,7 +596,7 @@ class OtherButton(Button):
         self.alpha_text = alpha_text
         self.beta_text = beta_text
 
-    def draw(self, screen, pressed=False):
+    def draw(self, screen, pressed=False, amount=1.0):
         radius = max(4, min(10, self.height // 5))
         shadow_color = BUTTON_SHADOW_PRESSED if pressed else BUTTON_SHADOW
         border_color = (55, 55, 55) if pressed else BUTTON_BORDER
@@ -627,23 +636,67 @@ class HotspotButton:
         self.rect = rect
         self.shape = shape
 
-    def draw(self, screen, pressed=False):
-        if not pressed:
+    def draw(self, screen, pressed=False, amount=1.0):
+        if not pressed or amount <= 0.0:
             return
 
-        overlay = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-        fill = (255, 255, 255, 48)
-        stroke = (70, 70, 70, 96)
+        draw_rect = self.rect
+        travel = max(1, int(round(min(draw_rect.width, draw_rect.height) * 0.08 * amount)))
+        pressed_rect = draw_rect.move(0, travel)
+
+        # Fade the original raised key a bit so the shifted pressed key reads clearly.
+        wash = pygame.Surface(draw_rect.size, pygame.SRCALPHA)
+        wash_alpha = int(round(52 * amount))
+        if self.shape == "circle":
+            pygame.draw.ellipse(wash, (*KEY_WELL_BG, wash_alpha), wash.get_rect())
+        else:
+            wash_radius = max(8, min(18, min(draw_rect.width, draw_rect.height) // 4))
+            pygame.draw.rect(wash, (*KEY_WELL_BG, wash_alpha), wash.get_rect(), border_radius=wash_radius)
+        screen.blit(wash, draw_rect)
+
+        # Reduce the lower shadow from the original JPEG so the key looks less lifted.
+        cover_h = max(2, int(round(draw_rect.height * 0.14 * amount)))
+        cover_rect = pygame.Rect(draw_rect.x, draw_rect.bottom - cover_h, draw_rect.width, cover_h + travel)
+        cover = pygame.Surface(cover_rect.size, pygame.SRCALPHA)
+        cover_alpha = int(round(120 * amount))
+        if self.shape == "circle":
+            pygame.draw.ellipse(cover, (*KEY_WELL_BG, cover_alpha), cover.get_rect())
+        else:
+            cover_radius = max(8, min(18, min(cover_rect.width, cover_rect.height) // 4))
+            pygame.draw.rect(cover, (*KEY_WELL_BG, cover_alpha), cover.get_rect(), border_radius=cover_radius)
+        screen.blit(cover, cover_rect)
+
+        overlay = pygame.Surface(pressed_rect.size, pygame.SRCALPHA)
+        fill = (*KEY_PRESS_FILL, int(round(178 * amount)))
+        stroke = (*KEY_PRESS_BORDER, int(round(168 * amount)))
+        hilt = (*KEY_PRESS_HILITE, int(round(88 * amount)))
+        shade = (*KEY_PRESS_SHADE, int(round(94 * amount)))
 
         if self.shape == "circle":
             pygame.draw.ellipse(overlay, fill, overlay.get_rect())
             pygame.draw.ellipse(overlay, stroke, overlay.get_rect(), width=2)
+
+            top_arc = overlay.get_rect().inflate(-max(6, overlay.get_width() // 6), -max(10, overlay.get_height() // 3))
+            top_arc.height = max(4, overlay.get_height() // 3)
+            pygame.draw.ellipse(overlay, hilt, top_arc, width=2)
+
+            bottom_arc = overlay.get_rect().inflate(-max(8, overlay.get_width() // 5), -max(10, overlay.get_height() // 3))
+            bottom_arc.height = max(4, overlay.get_height() // 3)
+            bottom_arc.top = overlay.get_height() - bottom_arc.height - 3
+            pygame.draw.ellipse(overlay, shade, bottom_arc, width=2)
         else:
-            radius = max(8, min(18, min(self.rect.width, self.rect.height) // 4))
+            radius = max(8, min(18, min(pressed_rect.width, pressed_rect.height) // 4))
             pygame.draw.rect(overlay, fill, overlay.get_rect(), border_radius=radius)
             pygame.draw.rect(overlay, stroke, overlay.get_rect(), width=2, border_radius=radius)
 
-        screen.blit(overlay, self.rect)
+            inner_left = max(6, int(round(pressed_rect.width * 0.12)))
+            inner_right = pressed_rect.width - inner_left
+            top_y = max(3, int(round(pressed_rect.height * 0.18)))
+            bottom_y = pressed_rect.height - max(4, int(round(pressed_rect.height * 0.16)))
+            pygame.draw.line(overlay, hilt, (inner_left, top_y), (inner_right, top_y), width=2)
+            pygame.draw.line(overlay, shade, (inner_left, bottom_y), (inner_right, bottom_y), width=2)
+
+        screen.blit(overlay, pressed_rect)
 
     def is_clicked(self, pos):
         return self.rect.collidepoint(pos)
@@ -888,7 +941,7 @@ def poll_events():
             if shortcut:
                 _queue_key(shortcut[0], shortcut[1], widget_id=None)
 
-    if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < 0.15:
+    if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < PRESS_TOTAL_SECS:
         render(force=False)
 
 
@@ -989,6 +1042,19 @@ def _draw_lcd_pixels():
                 STATE.lcd_surface.set_at((x, y_base + bit), color)
 
 
+def _press_amount(now: float, last_key_ts: float) -> float:
+    elapsed = now - last_key_ts
+    if elapsed < 0 or elapsed >= PRESS_TOTAL_SECS:
+        return 0.0
+    if elapsed <= PRESS_HOLD_SECS:
+        return 1.0
+
+    t = (elapsed - PRESS_HOLD_SECS) / PRESS_RELEASE_SECS
+    t = max(0.0, min(1.0, t))
+    # Smoothly ease the key back to its raised position.
+    return 1.0 - (t * t * (3.0 - 2.0 * t))
+
+
 def render(force: bool = False):
     ensure_ui()
 
@@ -1016,8 +1082,8 @@ def render(force: bool = False):
         STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
     for item in STATE.key_widgets:
-        pressed = (STATE.last_widget_id == item.widget_id) and ((now - STATE.last_key_ts) < 0.15)
-        item.widget.draw(STATE.screen, pressed=pressed)
+        amount = _press_amount(now, STATE.last_key_ts) if STATE.last_widget_id == item.widget_id else 0.0
+        item.widget.draw(STATE.screen, pressed=amount > 0.0, amount=amount)
 
     pygame.display.flip()
     STATE.last_render = now
