@@ -294,6 +294,52 @@ STATE = _UIState()
 PRESS_HOLD_SECS = 0.05
 PRESS_RELEASE_SECS = 0.10
 PRESS_TOTAL_SECS = PRESS_HOLD_SECS + PRESS_RELEASE_SECS
+RELOAD_EXIT_CODE = "__CALSCI_SIMULATOR_RELOAD__"
+
+PRINTABLE_SHORTCUTS = {
+    "0": "0",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5": "5",
+    "6": "6",
+    "7": "7",
+    "8": "8",
+    "9": "9",
+    ".": ".",
+    ",": ",",
+    "(": "(",
+    ")": ")",
+    "+": "+",
+    "-": "-",
+    "/": "/",
+    "*": "*",
+}
+
+KEYCODE_SHORTCUTS = {
+    pygame.K_RETURN: "ok",
+    pygame.K_BACKSPACE: "back",
+    pygame.K_DELETE: "nav_b",
+    pygame.K_ESCAPE: "home",
+    pygame.K_UP: "nav_u",
+    pygame.K_DOWN: "nav_d",
+    pygame.K_LEFT: "nav_l",
+    pygame.K_RIGHT: "nav_r",
+    pygame.K_F1: "F1",
+    pygame.K_F2: "F2",
+    pygame.K_F3: "F3",
+    pygame.K_F4: "F4",
+    pygame.K_F6: "F6",
+}
+
+CTRL_SHORTCUTS = {
+    pygame.K_a: "alpha",
+    pygame.K_b: "beta",
+    pygame.K_h: "home",
+    pygame.K_l: "lock",
+    pygame.K_LEFT: "back",
+}
 
 
 def _load_font(name: str, size: int):
@@ -877,6 +923,12 @@ def ensure_ui():
     render(force=True)
 
 
+def shutdown_ui():
+    if not pygame.get_init():
+        return
+    pygame.quit()
+
+
 def _queue_key(row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     _play_click()
     STATE.pending_keys.append((row_idx, col_idx))
@@ -892,23 +944,50 @@ def _coord_for_key(key: str):
     return (row, col)
 
 
-def _keyboard_shortcuts():
-    shortcuts = {
-        pygame.K_RETURN: "ok",
-        pygame.K_BACKSPACE: "back",
-        pygame.K_DELETE: "nav_b",
-        pygame.K_ESCAPE: "home",
-        pygame.K_UP: "nav_u",
-        pygame.K_DOWN: "nav_d",
-        pygame.K_LEFT: "nav_l",
-        pygame.K_RIGHT: "nav_r",
-    }
-    return {
-        keycode: coord
-        for keycode, key_name in shortcuts.items()
-        for coord in [_coord_for_key(key_name)]
-        if coord is not None
-    }
+def _widget_id_for_coord(row_idx: int, col_idx: int) -> Optional[int]:
+    for item in STATE.key_widgets:
+        if item.row == row_idx and item.col == col_idx:
+            return item.widget_id
+    return None
+
+
+def _queue_key_by_name(key_name: str) -> bool:
+    coord = _coord_for_key(key_name)
+    if coord is None:
+        return False
+
+    row_idx, col_idx = coord
+    _queue_key(row_idx, col_idx, widget_id=_widget_id_for_coord(row_idx, col_idx))
+    return True
+
+
+def _keydown_action(event):
+    ctrl_held = bool(event.mod & pygame.KMOD_CTRL)
+
+    if event.key == pygame.K_F5:
+        return ("reload", None)
+
+    if ctrl_held and event.key == pygame.K_q:
+        return ("quit", None)
+
+    if ctrl_held:
+        key_name = CTRL_SHORTCUTS.get(event.key)
+        if key_name is not None:
+            return ("queue", key_name)
+        return (None, None)
+
+    if event.key == pygame.K_s:
+        return ("screenshot", None)
+
+    key_name = KEYCODE_SHORTCUTS.get(event.key)
+    if key_name is not None:
+        return ("queue", key_name)
+
+    key_name = PRINTABLE_SHORTCUTS.get(event.unicode)
+    if key_name is not None:
+        return ("queue", key_name)
+
+    return (None, None)
 
 
 def poll_events():
@@ -930,9 +1009,13 @@ def poll_events():
                     break
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_q and (event.mod & pygame.KMOD_CTRL):
+            action, payload = _keydown_action(event)
+
+            if action == "quit":
                 raise SystemExit(0)
-            if event.key == pygame.K_s:
+            if action == "reload":
+                raise SystemExit(RELOAD_EXIT_CODE)
+            if action == "screenshot":
                 try:
                     output_path = save_display_screenshot()
                 except OSError as exc:
@@ -940,9 +1023,8 @@ def poll_events():
                 else:
                     print(f"[sim_ui] screenshot saved: {output_path}")
                 continue
-            shortcut = _keyboard_shortcuts().get(event.key)
-            if shortcut:
-                _queue_key(shortcut[0], shortcut[1], widget_id=None)
+            if action == "queue" and payload is not None:
+                _queue_key_by_name(payload)
 
     if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < PRESS_TOTAL_SECS:
         render(force=False)
