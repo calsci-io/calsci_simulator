@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import time
 from collections import deque
 from pathlib import Path
@@ -177,6 +178,10 @@ BACKGROUND_CANDIDATES = [
     Path(__file__).resolve().parent / "Untitled.jpg",
 ]
 SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "simulator_screen_shots"
+VIDEO_DIR = Path(__file__).resolve().parent.parent / "simulator_videos"
+VIDEO_FILENAME_PREFIX = "display"
+VIDEO_FPS = 20
+VIDEO_SCALE = 6
 
 # Active LCD plane measured from the inner sharp-edged screen cutout
 # in the reference mockup, not the rounded outer display bezel.
@@ -273,6 +278,7 @@ class _UIState:
 
         self.key_widgets = []
         self.pending_keys = deque()
+        self.active_sources = {}
         self.last_widget_id = None
         self.last_key_ts = 0.0
 
@@ -287,6 +293,10 @@ class _UIState:
         self.last_render = 0.0
         self.click_sound = None
         self.click_sound_ready = False
+        self.recording_process = None
+        self.recording_path = None
+        self.recording_last_frame = None
+        self.recording_next_frame_at = 0.0
 
 
 STATE = _UIState()
@@ -486,6 +496,193 @@ def save_display_screenshot() -> Path:
     output_path = SCREENSHOT_DIR / filename
     output_path.write_text(_build_display_svg(), encoding="utf-8")
     return output_path
+
+
+def _build_timestamped_output_path(directory: Path, suffix: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    millis = int((time.time() % 1.0) * 1000)
+    filename = f"{VIDEO_FILENAME_PREFIX}_{stamp}_{millis:03d}.{suffix}"
+    return directory / filename
+
+
+def _recording_active() -> bool:
+    return STATE.recording_process is not None
+
+
+def _capture_display_frame_bytes() -> bytes:
+    _draw_lcd_pixels()
+    return pygame.image.tobytes(STATE.lcd_surface, "RGB")
+
+
+def _clear_recording_state():
+    STATE.recording_process = None
+    STATE.recording_path = None
+    STATE.recording_last_frame = None
+    STATE.recording_next_frame_at = 0.0
+    STATE.dirty = True
+
+
+def _close_recording_process(process: subprocess.Popen[bytes], timeout: float = 10.0):
+    stderr_text = ""
+
+    if process.stdin is not None and not process.stdin.closed:
+        process.stdin.close()
+
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+    if process.stderr is not None:
+        try:
+            stderr_data = process.stderr.read()
+        finally:
+            process.stderr.close()
+        if stderr_data:
+            stderr_text = stderr_data.decode("utf-8", errors="replace").strip()
+
+    return process.returncode, stderr_text
+
+
+def _abort_display_recording(detail: str) -> str:
+    process = STATE.recording_process
+    output_path = STATE.recording_path
+    _clear_recording_state()
+
+    stderr_text = ""
+    if process is not None:
+        _, stderr_text = _close_recording_process(process, timeout=3.0)
+
+    message = detail
+    if stderr_text:
+        message = f"{detail}: {stderr_text}" if detail else stderr_text
+
+    if output_path is not None:
+        print(f"[sim_ui] recording failed for {output_path}: {message}")
+    else:
+        print(f"[sim_ui] recording failed: {message}")
+    return message
+
+
+def _write_recording_frame(frame_bytes: bytes) -> Optional[str]:
+    process = STATE.recording_process
+    if process is None or process.stdin is None:
+        return "recording process is not available"
+
+    try:
+        process.stdin.write(frame_bytes)
+    except (BrokenPipeError, OSError) as exc:
+        return _abort_display_recording(str(exc))
+
+    return None
+
+
+def _pump_video_recording(now: Optional[float] = None) -> Optional[str]:
+    if not _recording_active() or STATE.recording_last_frame is None:
+        return None
+
+    if now is None:
+        now = time.monotonic()
+
+    while now >= STATE.recording_next_frame_at:
+        error = _write_recording_frame(STATE.recording_last_frame)
+        if error is not None:
+            return error
+        STATE.recording_next_frame_at += 1.0 / VIDEO_FPS
+
+    return None
+
+
+def start_display_recording() -> Path:
+    ensure_ui()
+
+    if _recording_active() and STATE.recording_path is not None:
+        return STATE.recording_path
+
+    output_path = _build_timestamped_output_path(VIDEO_DIR, "mp4")
+    command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-pixel_format",
+        "rgb24",
+        "-video_size",
+        f"{LCD_WIDTH}x{LCD_HEIGHT}",
+        "-framerate",
+        str(VIDEO_FPS),
+        "-i",
+        "-",
+        "-vf",
+        f"scale={LCD_WIDTH * VIDEO_SCALE}:{LCD_HEIGHT * VIDEO_SCALE}:flags=neighbor,format=yuv420p",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise OSError(f"unable to start ffmpeg: {exc}") from exc
+
+    STATE.recording_process = process
+    STATE.recording_path = output_path
+    STATE.recording_last_frame = _capture_display_frame_bytes()
+    STATE.recording_next_frame_at = time.monotonic() + (1.0 / VIDEO_FPS)
+
+    error = _write_recording_frame(STATE.recording_last_frame)
+    if error is not None:
+        raise OSError(error)
+
+    STATE.dirty = True
+    return output_path
+
+
+def stop_display_recording() -> Path:
+    if not _recording_active() or STATE.recording_path is None:
+        raise RuntimeError("display recording is not active")
+
+    error = _pump_video_recording()
+    if error is not None:
+        raise OSError(error)
+
+    process = STATE.recording_process
+    output_path = STATE.recording_path
+    _clear_recording_state()
+
+    returncode, stderr_text = _close_recording_process(process)
+    if returncode != 0:
+        detail = stderr_text or f"ffmpeg exited with status {returncode}"
+        raise OSError(detail)
+
+    return output_path
+
+
+def _stop_recording_for_exit():
+    if not _recording_active():
+        return
+
+    try:
+        output_path = stop_display_recording()
+    except OSError as exc:
+        print(f"[sim_ui] recording failed while closing: {exc}")
+    else:
+        print(f"[sim_ui] recording saved: {output_path}")
 
 
 def get_scale(screen):
@@ -924,16 +1121,22 @@ def ensure_ui():
 
 
 def shutdown_ui():
+    _stop_recording_for_exit()
     if not pygame.get_init():
         return
     pygame.quit()
 
 
+def _set_recent_widget(widget_id: Optional[int]):
+    STATE.last_widget_id = widget_id
+    STATE.last_key_ts = time.monotonic()
+    STATE.dirty = True
+
+
 def _queue_key(row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     _play_click()
     STATE.pending_keys.append((row_idx, col_idx))
-    STATE.last_widget_id = widget_id
-    STATE.last_key_ts = time.monotonic()
+    _set_recent_widget(widget_id)
 
 
 def _coord_for_key(key: str):
@@ -951,6 +1154,55 @@ def _widget_id_for_coord(row_idx: int, col_idx: int) -> Optional[int]:
     return None
 
 
+def _active_widget_ids():
+    return {
+        widget_id
+        for _, _, widget_id in STATE.active_sources.values()
+        if widget_id is not None
+    }
+
+
+def _active_key_matches(col_pin: int) -> bool:
+    for row_idx, col_idx, _ in STATE.active_sources.values():
+        if COL_PINS[col_idx] != col_pin:
+            continue
+        if STATE.row_levels.get(ROW_PINS[row_idx], 1) == 0:
+            return True
+    return False
+
+
+def _press_key_source(source_id: str, row_idx: int, col_idx: int, widget_id: Optional[int] = None):
+    next_state = (row_idx, col_idx, widget_id)
+    if STATE.active_sources.get(source_id) == next_state:
+        return
+
+    STATE.active_sources[source_id] = next_state
+    _queue_key(row_idx, col_idx, widget_id=widget_id)
+
+
+def _release_key_source(source_id: str):
+    active = STATE.active_sources.pop(source_id, None)
+    if active is None:
+        return False
+
+    _set_recent_widget(active[2])
+    return True
+
+
+def _release_all_key_sources():
+    if not STATE.active_sources:
+        return False
+
+    last_widget_id = None
+    for _, _, widget_id in STATE.active_sources.values():
+        if widget_id is not None:
+            last_widget_id = widget_id
+
+    STATE.active_sources.clear()
+    _set_recent_widget(last_widget_id)
+    return True
+
+
 def _queue_key_by_name(key_name: str) -> bool:
     coord = _coord_for_key(key_name)
     if coord is None:
@@ -959,6 +1211,20 @@ def _queue_key_by_name(key_name: str) -> bool:
     row_idx, col_idx = coord
     _queue_key(row_idx, col_idx, widget_id=_widget_id_for_coord(row_idx, col_idx))
     return True
+
+
+def _press_key_by_name(source_id: str, key_name: str) -> bool:
+    coord = _coord_for_key(key_name)
+    if coord is None:
+        return False
+
+    row_idx, col_idx = coord
+    _press_key_source(source_id, row_idx, col_idx, widget_id=_widget_id_for_coord(row_idx, col_idx))
+    return True
+
+
+def _keyboard_source_id(key_code: int) -> str:
+    return f"keyboard:{int(key_code)}"
 
 
 def _keydown_action(event):
@@ -978,6 +1244,8 @@ def _keydown_action(event):
 
     if event.key == pygame.K_s:
         return ("screenshot", None)
+    if event.key == pygame.K_v:
+        return ("recording_toggle", None)
 
     key_name = KEYCODE_SHORTCUTS.get(event.key)
     if key_name is not None:
@@ -992,28 +1260,39 @@ def _keydown_action(event):
 
 def poll_events():
     ensure_ui()
+    _pump_video_recording()
+    window_focus_lost = getattr(pygame, "WINDOWFOCUSLOST", None)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            _stop_recording_for_exit()
             raise SystemExit(0)
+
+        if window_focus_lost is not None and event.type == window_focus_lost:
+            _release_all_key_sources()
+            continue
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for item in STATE.key_widgets:
                 if item.widget.is_clicked(event.pos):
                     if item.row is not None and item.col is not None:
-                        _queue_key(item.row, item.col, widget_id=item.widget_id)
+                        _press_key_source("mouse:left", item.row, item.col, widget_id=item.widget_id)
                     else:
                         _play_click()
-                        STATE.last_widget_id = item.widget_id
-                        STATE.last_key_ts = time.monotonic()
+                        _set_recent_widget(item.widget_id)
                     break
+
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            _release_key_source("mouse:left")
 
         if event.type == pygame.KEYDOWN:
             action, payload = _keydown_action(event)
 
             if action == "quit":
+                _stop_recording_for_exit()
                 raise SystemExit(0)
             if action == "reload":
+                _stop_recording_for_exit()
                 raise SystemExit(RELOAD_EXIT_CODE)
             if action == "screenshot":
                 try:
@@ -1023,8 +1302,27 @@ def poll_events():
                 else:
                     print(f"[sim_ui] screenshot saved: {output_path}")
                 continue
+            if action == "recording_toggle":
+                if _recording_active():
+                    try:
+                        output_path = stop_display_recording()
+                    except OSError as exc:
+                        print(f"[sim_ui] recording failed: {exc}")
+                    else:
+                        print(f"[sim_ui] recording saved: {output_path}")
+                else:
+                    try:
+                        output_path = start_display_recording()
+                    except OSError as exc:
+                        print(f"[sim_ui] recording failed: {exc}")
+                    else:
+                        print(f"[sim_ui] recording started: {output_path}")
+                continue
             if action == "queue" and payload is not None:
-                _queue_key_by_name(payload)
+                _press_key_by_name(_keyboard_source_id(event.key), payload)
+
+        if event.type == pygame.KEYUP:
+            _release_key_source(_keyboard_source_id(event.key))
 
     if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < PRESS_TOTAL_SECS:
         render(force=False)
@@ -1037,18 +1335,17 @@ def set_row_level(pin: int, value: int):
 def read_col_pin(col_pin: int) -> int:
     poll_events()
 
-    if not STATE.pending_keys:
+    if STATE.pending_keys:
+        row_idx, col_idx = STATE.pending_keys[0]
+        expected_col_pin = COL_PINS[col_idx]
+        expected_row_pin = ROW_PINS[row_idx]
+
+        if col_pin == expected_col_pin and STATE.row_levels.get(expected_row_pin, 1) == 0:
+            STATE.pending_keys.popleft()
+            return 0
         return 1
 
-    row_idx, col_idx = STATE.pending_keys[0]
-    expected_col_pin = COL_PINS[col_idx]
-    expected_row_pin = ROW_PINS[row_idx]
-
-    if col_pin != expected_col_pin:
-        return 1
-
-    if STATE.row_levels.get(expected_row_pin, 1) == 0:
-        STATE.pending_keys.popleft()
+    if _active_key_matches(col_pin):
         return 0
 
     return 1
@@ -1056,6 +1353,7 @@ def read_col_pin(col_pin: int) -> int:
 
 def clear_keys():
     STATE.pending_keys.clear()
+    _release_all_key_sources()
 
 
 def pop_pending_keys():
@@ -1137,6 +1435,22 @@ def _press_amount(now: float, last_key_ts: float) -> float:
     return 1.0 - (t * t * (3.0 - 2.0 * t))
 
 
+def _draw_recording_indicator(screen, display_rect: pygame.Rect):
+    radius = scale_value(10, screen, min_value=4)
+    border = max(1, radius // 4)
+    margin = scale_value(12, screen, min_value=5)
+    center_x = max(radius + margin, min(screen.get_width() - radius - margin, display_rect.right - radius))
+    center_y = max(radius + margin, display_rect.y - radius - margin)
+    center = (center_x, center_y)
+
+    pygame.draw.circle(screen, (36, 37, 41), center, radius + border)
+    pygame.draw.circle(screen, (214, 34, 34), center, radius)
+
+    highlight_radius = max(1, radius // 3)
+    highlight = (center_x - highlight_radius, center_y - highlight_radius)
+    pygame.draw.circle(screen, (255, 184, 184), highlight, highlight_radius)
+
+
 def render(force: bool = False):
     ensure_ui()
 
@@ -1154,10 +1468,19 @@ def render(force: bool = False):
     scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
     STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
+    active_widget_ids = _active_widget_ids()
     for item in STATE.key_widgets:
-        amount = _press_amount(now, STATE.last_key_ts) if STATE.last_widget_id == item.widget_id else 0.0
+        if item.widget_id in active_widget_ids:
+            amount = 1.0
+        else:
+            amount = _press_amount(now, STATE.last_key_ts) if STATE.last_widget_id == item.widget_id else 0.0
         item.widget.draw(STATE.screen, pressed=amount > 0.0, amount=amount)
 
+    if _recording_active():
+        STATE.recording_last_frame = pygame.image.tobytes(STATE.lcd_surface, "RGB")
+        _draw_recording_indicator(STATE.screen, disp)
+
     pygame.display.flip()
+    _pump_video_recording(now)
     STATE.last_render = now
     STATE.dirty = False

@@ -101,6 +101,7 @@ Smoke test:
   - `0-9`, `.,()+-/*` -> matching calculator keys
   - `F1`, `F2`, `F3`, `F4`, `F6` -> matching calculator keys
   - `S` -> save a display screenshot
+  - `V` -> start/stop display video recording
   - `Esc` -> `home`
   - `Ctrl+Q` -> quit
 
@@ -108,3 +109,5 @@ Smoke test:
 
 - Paths like `/db/...` or `/apps/...` are remapped to `../calsci_latest_itr/db/...` and `../calsci_latest_itr/apps/...`.
 - Some hardware/network-specific apps run in simulated/no-op mode where needed.
+- Screenshots are saved in `../simulator_screen_shots`, and display recordings are saved in `../simulator_videos`.
+- Display recording shells out to `ffmpeg`, so it needs to be available on `PATH`.
