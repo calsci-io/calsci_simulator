@@ -2,6 +2,34 @@
 
 Thin desktop simulator for CalSci.
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/readme_images/calculate.png" alt="Calculate app" width="250"><br>
+      <sub><b>Calculate</b></sub>
+    </td>
+    <td align="center">
+      <img src="docs/readme_images/graph.png" alt="Graph app" width="250"><br>
+      <sub><b>Graph</b></sub>
+    </td>
+    <td align="center">
+      <img src="docs/readme_images/battery_status.png" alt="Battery Status app" width="250"><br>
+      <sub><b>Battery Status</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/readme_images/dino.png" alt="Dino game" width="250"><br>
+      <sub><b>Dino</b></sub>
+    </td>
+    <td align="center">
+      <img src="docs/readme_images/chatgpt.png" alt="ChatGPT app" width="250"><br>
+      <sub><b>ChatGPT</b></sub>
+    </td>
+    <td></td>
+  </tr>
+</table>
+
 ## Run
 
 ### Linux / macOS

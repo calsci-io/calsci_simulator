@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from array import array
+import math
 import subprocess
 import threading
 import time
@@ -188,6 +190,9 @@ VIDEO_FILENAME_PREFIX = "display"
 VIDEO_FPS = 20
 VIDEO_SCALE = 6
 EXPORT_FRAME_MAX_DIM = 1080
+CLICK_SAMPLE_RATE = 22050
+CLICK_VOLUME = 0.22
+CLICK_DURATION_SECONDS = 0.035
 
 # Active LCD plane measured from the inner sharp-edged screen cutout
 # in the reference mockup, not the rounded outer display bezel.
@@ -389,13 +394,29 @@ def _load_click_sound():
 
     try:
         if not pygame.mixer.get_init():
-            pygame.mixer.init()
-        for candidate in ASSET_CANDIDATES:
-            sound_path = candidate / "click.wav"
-            if sound_path.exists():
-                STATE.click_sound = pygame.mixer.Sound(str(sound_path))
-                STATE.click_sound.set_volume(0.4)
-                break
+            pygame.mixer.init(
+                frequency=CLICK_SAMPLE_RATE,
+                size=-16,
+                channels=1,
+                buffer=256,
+            )
+
+        sample_count = max(1, int(CLICK_SAMPLE_RATE * CLICK_DURATION_SECONDS))
+        pcm = array("h")
+        for idx in range(sample_count):
+            t = idx / CLICK_SAMPLE_RATE
+            progress = idx / max(1, sample_count - 1)
+            attack = 1.0 - progress
+
+            # A tactile "click" is mostly a sharp transient plus a tiny body.
+            primary = math.sin(2.0 * math.pi * 2350.0 * t) * math.exp(-t * 95.0)
+            body = math.sin(2.0 * math.pi * 780.0 * t) * math.exp(-t * 42.0)
+            rebound = math.sin(2.0 * math.pi * 1680.0 * max(0.0, t - 0.009)) * math.exp(-max(0.0, t - 0.009) * 150.0)
+
+            amplitude = (primary * 0.9) + (body * 0.45) + (rebound * 0.35)
+            pcm.append(int(max(-1.0, min(1.0, amplitude * attack)) * 32767 * CLICK_VOLUME))
+
+        STATE.click_sound = pygame.mixer.Sound(buffer=pcm.tobytes())
     except Exception:
         STATE.click_sound = None
 
@@ -1323,6 +1344,12 @@ def ensure_ui():
     if STATE.initialized:
         return
 
+    pygame.mixer.pre_init(
+        frequency=CLICK_SAMPLE_RATE,
+        size=-16,
+        channels=1,
+        buffer=256,
+    )
     pygame.init()
     pygame.font.init()
 
@@ -1332,6 +1359,7 @@ def ensure_ui():
 
     _ensure_fonts(get_scale(STATE.screen))
     STATE.key_widgets = _build_key_widgets(STATE.screen)
+    _load_click_sound()
 
     STATE.initialized = True
     render(force=True)
