@@ -1,33 +1,8 @@
 # calsci_latest_itr_simulator
 
-Thin desktop simulator for `calsci_latest_itr`.
-
-This folder only provides hardware and MicroPython compatibility shims:
-- display driver shim: `st7565.py`
-- keypad + display UI surface: `sim_ui.py`
-- MicroPython runtime shims: `machine.py`, `network.py`, `esp32.py`, `utime.py`, `urequests.py`, etc.
-
-All app/runtime logic is imported and executed directly from the bundled `./calsci_latest_itr` submodule.
+Thin desktop simulator for CalSci.
 
 ## Run
-
-Clone with the latest `calsci_latest_itr/main` submodule commit:
-
-```bash
-git clone --recurse-submodules --remote-submodules https://github.com/calsci-io/calsci_simulator.git
-```
-
-If you already cloned without submodules:
-
-```bash
-git submodule update --init --recursive --remote
-```
-
-Or use the helper script from the repo root:
-
-```bash
-./bootstrap_latest_submodules.sh
-```
 
 ### Linux / macOS
 
@@ -62,71 +37,6 @@ python main.py
 Note: plain `git clone --recurse-submodules` checks out the simulator's pinned submodule commit. Use the `--remote-submodules` flow above if you want the newest `calsci_latest_itr/main` tip on clone.
 
 If PowerShell blocks script activation on Windows, run the Command Prompt variant instead.
-
-## Build Standalone Ubuntu Bundle
-
-Build a PyInstaller `--onedir` bundle that includes the simulator, Python runtime,
-and the `calsci_latest_itr` submodule app tree:
-
-```bash
-cd calsci_simulator
-pyinstaller --clean --noconfirm --distpath dist --workpath build calsci_simulator_onedir.spec
-```
-
-The runnable executable is created at:
-
-```bash
-dist/calsci_simulator/calsci_simulator
-```
-
-Copy the whole `dist/calsci_simulator/` folder to the target Ubuntu machine and run
-the `calsci_simulator` executable from there.
-
-If you want the packaged simulator to use a different `calsci_latest_itr` checkout
-without rebuilding, either:
-
-```bash
-CALSCI_APP_DIR=/path/to/calsci_latest_itr ./dist/calsci_simulator/calsci_simulator
-```
-
-or place a `calsci_latest_itr/` folder next to the executable. In a PyInstaller
-bundle, that external folder is preferred over the bundled copy.
-
-## Run On MicroPython unix Port (Headless)
-
-Use the dedicated unix runtime when you want CalSci core logic to execute under `mpy_firmware` constraints (no desktop UI).
-
-```bash
-/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py
-```
-
-If you need full LVGL (real binding, not stub), use the unix helper that mirrors the ESP32-S3 LVGL integration settings:
-
-```bash
-/home/sobik/calsci_simulator/unix_port/build_real_lvgl.sh
-/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-lvgl/micropython /home/sobik/calsci_simulator/unix_port/main.py
-```
-
-ESP32-S3 reference:
-- Firmware build uses `USER_C_MODULES=<repo>/c_modules/micropython.cmake` (CMake flow).
-- Unix port uses `USER_C_MODULES=../../lib` (Make flow) with the same LVGL tuning:
-  `LV_CONF_PATH=../../lib/lv_binding_micropython/lv_conf.h` and `LV_CFLAGS=-DLV_COLOR_DEPTH=1`.
-- Override the default firmware path if needed with `CALSCI_MPY_FIRMWARE=/path/to/mpy_firmware`.
-
-Shortcut:
-
-```bash
-/home/sobik/calsci_simulator/main_mpy_lvgl.sh
-```
-
-This wrapper now opens the desktop simulator window while the real unix-port LVGL runtime is running.
-Use `CALSCI_HEADLESS=1` if you want the old headless behavior.
-
-Smoke test:
-
-```bash
-/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py --smoke
-```
 
 ## Controls
 
