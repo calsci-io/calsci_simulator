@@ -1,98 +1,93 @@
-import pygame
-pygame.init()
-pygame.font.init()
-pygame.display.set_caption("CalSci Simulator")
-import ui as rc
-from ui import Button
-from utility.keymap import Keypad
-from utility.constants import KeyButtons as KB, KeypadMode as KM
-from display.display import Display, WINDOWHEIGHT, page_col
-from display.characters import Characters 
-from display.text_buffer import TextBuffer
-from display.text_uploader import TextUploader
-from data_modules.object_handler import keypad_state_manager_reset, screen, keypad, Typer, clock
-from process_modules.app_runner import app_runner
-from utility.typer import get_buttons, get_other_buttons
-import data_modules.object_handler as oh
+from __future__ import annotations
 
-# screen = pygame.display.set_mode((450, 800))
-# screen.fill((240, 240, 240))
-display = Display(screen=screen, chrs=Characters())
+import os
+import runpy
+import sys
+from pathlib import Path
 
-typer = Typer(keypad=keypad, keypad_map=None )
-display.turn_off_all_pixels()
-text = TextBuffer()
-text_uploader = TextUploader(display, chrs=Characters(), t_b=text)
-text_uploader.refresh()
-text.all_clear()
-# main_font = pygame.font.Font("DejaVuSans.ttf", 14)
-# fallback_font = pygame.font.Font("notosymbols2.ttf", 14)
-# emoji_font = pygame.font.Font("notoemoji.ttf", 14)
-# clock = pygame.time.Clock()
-while True:    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            quit()
-    #     if event.type == pygame.MOUSEBUTTONDOWN:
-    #         if event.button != 1:
-    #             continue
-            
-            # x = typer.start_typing()
-            
-            # if x == "alpha" or x == "beta":
-            #     typer.change_keymaps(x)
-            #     state = typer.keypad.state
-            #     if(state==KM.DEFAULT):
-            #         text_uploader.refresh()
-            #     else:
-            #         text_uploader.refresh(state=x)
-            #     text.update_buffer("")
-            #     continue
-
-            # if x == "AC":
-            #     text.all_clear()
-            #     text_uploader.refresh()
-            #     display.clear_display()
-
-            # if x != "ans":
-            #     print(x)
-            #     text.update_buffer(x)
+from compat import install_compat
+import sim_ui
 
 
-            # text_uploader.refresh() 
-    rc.present()
-    keypad_state_manager_reset()
-    app_runner()
-
-    # button_posx = 20
-    # button_posy = 20
-
-    # width = 40
-    # height = 40
-    # gap = 2
-
-    # text = main_font.render("A", True, (20,20,20), (240,240,240))
-    # rect_text = text.get_rect()
-    # rect_text.topleft = (button_posx, button_posy-text.get_height()-gap)
-    # screen.blit(text,rect_text)
-
-    # text = main_font.render("B", True, (20,20,20), (240,240,240))
-    # rect_text = text.get_rect()
-    # rect_text.topleft = (button_posx+width-text.get_width(), button_posy-text.get_height()-gap)
-    # screen.blit(text,rect_text)
+def _external_calsci_dir() -> Path | None:
+    override = os.environ.get("CALSCI_APP_DIR")
+    if not override:
+        return None
+    return Path(override).expanduser().resolve()
 
 
-    # rect = pygame.Rect(button_posx,button_posy,width,height)
-    # pygame.draw.rect(screen, (255,255,255), rect)
-    # text = main_font.render("K", True, (20,20,20), (255,255,255))
-    # rect_text = text.get_rect()
-    # rect_text.topleft = (button_posx+width//2-text.get_width()//2, button_posy+height//2-text.get_height()//2)
-
-    # screen.blit(text,rect_text)
+def _resolve_simulator_dir() -> Path:
+    bundle_dir = getattr(sys, "_MEIPASS", None)
+    if bundle_dir:
+        return Path(bundle_dir).resolve()
+    return Path(__file__).resolve().parent
 
 
-    rc.present()
+def _resolve_calsci_dir(simulator_dir: Path) -> Path:
+    candidates = []
 
-    clock.tick(60)
-    
+    override_dir = _external_calsci_dir()
+    if override_dir is not None:
+        candidates.append(override_dir)
+
+    # In PyInstaller onedir builds, let an app tree placed next to the executable
+    # override the bundled copy so branch swaps can be tested without rebuilding.
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "calsci_latest_itr")
+
+    candidates.extend(
+        (
+            simulator_dir / "calsci_latest_itr",
+            simulator_dir.parent / "calsci_latest_itr",
+        )
+    )
+
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+
+    raise RuntimeError(
+        "calsci_latest_itr directory not found. Set CALSCI_APP_DIR to override the app tree."
+    )
+
+
+SIM_DIR = _resolve_simulator_dir()
+CALSCI_DIR = _resolve_calsci_dir(SIM_DIR)
+LIB_DIR = CALSCI_DIR / "lib"
+
+# Path order is important: simulator shims first, then firmware code + firmware lib.
+ordered_paths = [str(SIM_DIR), str(CALSCI_DIR), str(LIB_DIR)]
+for p in ordered_paths:
+    if p in sys.path:
+        sys.path.remove(p)
+sys.path[:0] = ordered_paths
+
+install_compat(calsci_dir=CALSCI_DIR, simulator_dir=SIM_DIR)
+
+
+def _restart_simulator():
+    sim_ui.shutdown_ui()
+    os.chdir(SIM_DIR)
+
+    if getattr(sys, "frozen", False):
+        os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+
+    os.execv(sys.executable, [sys.executable, str(SIM_DIR / "main.py"), *sys.argv[1:]])
+
+
+def _run_simulator_app():
+    os.chdir(CALSCI_DIR)
+
+    # Bring up the display window before app boot.
+    import st7565
+
+    st7565.init(9, 11, 10, 13, 12)
+    runpy.run_path(str(CALSCI_DIR / "main.py"), run_name="__main__")
+
+
+try:
+    _run_simulator_app()
+except SystemExit as exc:
+    if exc.code == sim_ui.RELOAD_EXIT_CODE:
+        _restart_simulator()
+    raise

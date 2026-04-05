@@ -1,52 +1,113 @@
-# Calsci Simulator
+# calsci_latest_itr_simulator
 
-Experience CalSci virtually on your Desktop.
+Thin desktop simulator for `calsci_latest_itr`.
 
-<p align="center">
-<img height="400" alt="Screenshot from 2026-02-20 17-03-38" src="https://github.com/user-attachments/assets/409c8d96-cee3-42ac-ae14-93e5ea4c0539" />
-<img height="400" alt="Screenshot from 2026-02-20 17-03-48" src="https://github.com/user-attachments/assets/0feed262-ef2e-4cc2-a47e-55ff15724c57" />
-<img height="400" alt="Screenshot from 2026-02-20 17-04-14" src="https://github.com/user-attachments/assets/e343004b-901f-48f1-a0e4-15d9d0c22107" />
-<img height="400" alt="Screenshot from 2026-02-20 17-04-21" src="https://github.com/user-attachments/assets/36833bd9-51bd-4349-afe6-debf4c835762" />
-</p>
+This folder only provides hardware and MicroPython compatibility shims:
+- display driver shim: `st7565.py`
+- keypad + display UI surface: `sim_ui.py`
+- MicroPython runtime shims: `machine.py`, `network.py`, `esp32.py`, `utime.py`, `urequests.py`, etc.
 
-## How to run
-If you are using **Ubuntu** ,some other **linux** distro or **Apple Mac**, the below commands can be run as it is.  
-If you are using **Windows** then you need to run them in [Git Bash](https://git-scm.com/install/windows)
+All app/runtime logic is imported and executed directly from `../calsci_latest_itr`.
 
-Just make sure these softwares are already installed in your system.
+## Run
 
-- Python 3.10 or above
-- git
-  
-### Steps:
-
-1. Clone this github repo.
 ```bash
-git clone https://github.com/calsci-io/calsci_simulator.git
-```
-
-2. Go inside this repo.
-```bash
-cd calsci_simulator
-```
-
-3. Create a virtual environment.
-```bash
-python -m venv venv
-```
-
-4. Activate the virtual environment.
-```bash
-source venv/bin/activate
-```
-
-5. Install all the dependencies.
-```bash
+cd calsci_latest_itr_simulator
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-
-6. Run the main file.
-```bash
 python main.py
 ```
+
+## Build Standalone Ubuntu Bundle
+
+Build a PyInstaller `--onedir` bundle that includes the simulator, Python runtime,
+and the sibling `calsci_latest_itr` app tree:
+
+```bash
+cd calsci_latest_itr_simulator
+pyinstaller --clean --noconfirm --distpath dist --workpath build calsci_simulator_onedir.spec
+```
+
+The runnable executable is created at:
+
+```bash
+dist/calsci_simulator/calsci_simulator
+```
+
+Copy the whole `dist/calsci_simulator/` folder to the target Ubuntu machine and run
+the `calsci_simulator` executable from there.
+
+If you want the packaged simulator to use a different `calsci_latest_itr` checkout
+without rebuilding, either:
+
+```bash
+CALSCI_APP_DIR=/path/to/calsci_latest_itr ./dist/calsci_simulator/calsci_simulator
+```
+
+or place a `calsci_latest_itr/` folder next to the executable. In a PyInstaller
+bundle, that external folder is preferred over the bundled copy.
+
+## Run On MicroPython unix Port (Headless)
+
+Use the dedicated unix runtime when you want CalSci core logic to execute under `mpy_firmware` constraints (no desktop UI).
+
+```bash
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py
+```
+
+If you need full LVGL (real binding, not stub), use the unix helper that mirrors the ESP32-S3 LVGL integration settings:
+
+```bash
+/home/sobik/calsci_simulator/unix_port/build_real_lvgl.sh
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-lvgl/micropython /home/sobik/calsci_simulator/unix_port/main.py
+```
+
+ESP32-S3 reference:
+- Firmware build uses `USER_C_MODULES=<repo>/c_modules/micropython.cmake` (CMake flow).
+- Unix port uses `USER_C_MODULES=../../lib` (Make flow) with the same LVGL tuning:
+  `LV_CONF_PATH=../../lib/lv_binding_micropython/lv_conf.h` and `LV_CFLAGS=-DLV_COLOR_DEPTH=1`.
+- Override the default firmware path if needed with `CALSCI_MPY_FIRMWARE=/path/to/mpy_firmware`.
+
+Shortcut:
+
+```bash
+/home/sobik/calsci_simulator/main_mpy_lvgl.sh
+```
+
+This wrapper now opens the desktop simulator window while the real unix-port LVGL runtime is running.
+Use `CALSCI_HEADLESS=1` if you want the old headless behavior.
+
+Smoke test:
+
+```bash
+/home/sobik/Lvgl Micropython/lvgl_integration/mpy_firmware/ports/unix/build-standard/micropython /home/sobik/calsci_simulator/unix_port/main.py --smoke
+```
+
+## Controls
+
+- Click calculator keys in the window.
+- Optional keyboard shortcuts:
+  - `F5` -> reload the simulator
+  - `Enter` -> `ok`
+  - `Backspace` -> `back`
+  - `Delete` -> `nav_b`
+  - Arrow keys -> navigation keys
+  - `Ctrl+Left` -> `back`
+  - `Ctrl+A` -> `alpha`
+  - `Ctrl+B` -> `beta`
+  - `Ctrl+H` -> `home`
+  - `Ctrl+L` -> `lock`
+  - `0-9`, `.,()+-/*` -> matching calculator keys
+  - `F1`, `F2`, `F3`, `F4`, `F6` -> matching calculator keys
+  - `S` -> save a display screenshot
+  - `V` -> start/stop display video recording
+  - `Esc` -> `home`
+  - `Ctrl+Q` -> quit
+
+## Notes
+
+- Paths like `/db/...` or `/apps/...` are remapped to `../calsci_latest_itr/db/...` and `../calsci_latest_itr/apps/...`.
+- Some hardware/network-specific apps run in simulated/no-op mode where needed.
+- Screenshots are saved in `../simulator_screen_shots`, and display recordings are saved in `../simulator_videos`.
+- Display recording shells out to `ffmpeg`, so it needs to be available on `PATH`.

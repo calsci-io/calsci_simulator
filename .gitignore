@@ -31,6 +31,7 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!calsci_simulator_onedir.spec
 
 # Installer logs
 pip-log.txt

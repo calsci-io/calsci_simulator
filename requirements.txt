@@ -1,5 +1,2 @@
-pygame==2.6.1
-requests
-tinydb
-psutil
-watchdog
+pygame>=2.5
+requests>=2.31
