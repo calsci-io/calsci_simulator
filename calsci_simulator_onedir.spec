@@ -6,11 +6,21 @@ from PyInstaller.utils.hooks import collect_submodules
 
 
 SPEC_DIR = Path(SPECPATH).resolve()
-CALSCI_DIR = (SPEC_DIR.parent / "calsci_latest_itr").resolve()
 BACKGROUND_IMAGE = SPEC_DIR / "Untitled.jpeg"
 
-if not CALSCI_DIR.is_dir():
-    raise SystemExit("calsci_latest_itr directory not found next to simulator")
+
+def _resolve_calsci_dir():
+    candidates = (
+        (SPEC_DIR / "calsci_latest_itr").resolve(),
+        (SPEC_DIR.parent / "calsci_latest_itr").resolve(),
+    )
+    for candidate in candidates:
+        if (candidate / "main.py").is_file() and (candidate / "apps").is_dir():
+            return candidate
+    raise SystemExit("calsci_latest_itr directory not found in or next to simulator")
+
+
+CALSCI_DIR = _resolve_calsci_dir()
 
 
 def _collect_data_files(root_dir, dest_prefix):
@@ -46,7 +56,6 @@ hiddenimports = [
     "machine",
     "network",
     "ntptime",
-    "professor_panda",
     "requests",
     "settings",
     "sim_ui",

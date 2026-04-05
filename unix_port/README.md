@@ -5,7 +5,7 @@ Run `calsci_latest_itr` core logic under the real MicroPython unix interpreter f
 ## What this does
 
 - Uses `mpy_firmware/ports/unix/build-standard/micropython` as the runtime.
-- Loads apps/modules directly from `../calsci_latest_itr`.
+- Loads apps/modules directly from the simulator repo's `../calsci_latest_itr` submodule.
 - Provides headless hardware shims (`machine`, `st7565`, `network`, `esp32`, `espnow`, etc.).
 - Maps absolute firmware paths (for example `/db/...`, `/apps/...`, `/database/...`, `/certs/...`) into local workspace paths.
 

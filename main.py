@@ -23,6 +23,15 @@ def _resolve_simulator_dir() -> Path:
     return Path(__file__).resolve().parent
 
 
+def _looks_like_calsci_dir(candidate: Path) -> bool:
+    return (
+        candidate.is_dir()
+        and (candidate / "main.py").is_file()
+        and (candidate / "apps").is_dir()
+        and (candidate / "lib").is_dir()
+    )
+
+
 def _resolve_calsci_dir(simulator_dir: Path) -> Path:
     candidates = []
 
@@ -43,7 +52,7 @@ def _resolve_calsci_dir(simulator_dir: Path) -> Path:
     )
 
     for candidate in candidates:
-        if candidate.is_dir():
+        if _looks_like_calsci_dir(candidate):
             return candidate
 
     raise RuntimeError(

@@ -49,6 +49,28 @@ def _isdir(path):
     return bool(mode & 0x4000)
 
 
+def _isfile(path):
+    os_path = getattr(os, "path", None)
+    if os_path is not None and hasattr(os_path, "isfile"):
+        return os_path.isfile(path)
+    try:
+        mode = os.stat(path)[0]
+    except Exception:
+        return False
+    return not bool(mode & 0x4000)
+
+
+def _find_calsci_dir(simulator_dir):
+    candidates = (
+        simulator_dir + "/calsci_latest_itr",
+        _dirname(simulator_dir) + "/calsci_latest_itr",
+    )
+    for candidate in candidates:
+        if _isdir(candidate) and _isfile(candidate + "/main.py"):
+            return candidate
+    return None
+
+
 def _run_smoke(calsci_dir):
     os.chdir(calsci_dir)
 
@@ -85,11 +107,10 @@ def main():
     script_path = _abspath(__file__)
     unix_port_dir = _dirname(script_path)
     simulator_dir = _dirname(unix_port_dir)
-    root_dir = _dirname(simulator_dir)
-    calsci_dir = root_dir + "/calsci_latest_itr"
+    calsci_dir = _find_calsci_dir(simulator_dir)
 
-    if not _isdir(calsci_dir):
-        raise OSError("calsci_latest_itr directory not found next to simulator")
+    if calsci_dir is None:
+        raise OSError("calsci_latest_itr directory not found in simulator repo")
 
     bootstrap(unix_port_dir=unix_port_dir, calsci_dir=calsci_dir, simulator_dir=simulator_dir)
     _print_lvgl_runtime()

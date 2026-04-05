@@ -7,12 +7,24 @@ This folder only provides hardware and MicroPython compatibility shims:
 - keypad + display UI surface: `sim_ui.py`
 - MicroPython runtime shims: `machine.py`, `network.py`, `esp32.py`, `utime.py`, `urequests.py`, etc.
 
-All app/runtime logic is imported and executed directly from `../calsci_latest_itr`.
+All app/runtime logic is imported and executed directly from the bundled `./calsci_latest_itr` submodule.
 
 ## Run
 
+Clone with the submodule:
+
 ```bash
-cd calsci_latest_itr_simulator
+git clone --recurse-submodules https://github.com/calsci-io/calsci_simulator.git
+```
+
+If you already cloned without submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+```bash
+cd calsci_simulator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -22,10 +34,10 @@ python main.py
 ## Build Standalone Ubuntu Bundle
 
 Build a PyInstaller `--onedir` bundle that includes the simulator, Python runtime,
-and the sibling `calsci_latest_itr` app tree:
+and the `calsci_latest_itr` submodule app tree:
 
 ```bash
-cd calsci_latest_itr_simulator
+cd calsci_simulator
 pyinstaller --clean --noconfirm --distpath dist --workpath build calsci_simulator_onedir.spec
 ```
 
@@ -107,7 +119,7 @@ Smoke test:
 
 ## Notes
 
-- Paths like `/db/...` or `/apps/...` are remapped to `../calsci_latest_itr/db/...` and `../calsci_latest_itr/apps/...`.
+- Paths like `/db/...` or `/apps/...` are remapped to `./calsci_latest_itr/db/...` and `./calsci_latest_itr/apps/...` by default.
 - Some hardware/network-specific apps run in simulated/no-op mode where needed.
 - Screenshots are saved in `../simulator_screen_shots`, and display recordings are saved in `../simulator_videos`.
 - Display recording shells out to `ffmpeg`, so it needs to be available on `PATH`.

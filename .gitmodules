@@ -1,0 +1,4 @@
+[submodule "calsci_latest_itr"]
+	path = calsci_latest_itr
+	url = https://github.com/calsci-io/calsci_latest_itr.git
+	branch = main
