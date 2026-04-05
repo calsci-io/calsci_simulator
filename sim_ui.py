@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -177,15 +178,26 @@ BACKGROUND_CANDIDATES = [
     Path(__file__).resolve().parent / "Untitled.jpeg",
     Path(__file__).resolve().parent / "Untitled.jpg",
 ]
+EXPORT_TEMPLATE_CANDIDATES = [
+    Path(__file__).resolve().parent / "assets" / "calsci_hero_app.png",
+    Path("/home/sobik/Downloads/calsci_hero_app.png"),
+]
 SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "simulator_screen_shots"
 VIDEO_DIR = Path(__file__).resolve().parent.parent / "simulator_videos"
 VIDEO_FILENAME_PREFIX = "display"
 VIDEO_FPS = 20
 VIDEO_SCALE = 6
+EXPORT_FRAME_MAX_DIM = 1080
 
 # Active LCD plane measured from the inner sharp-edged screen cutout
 # in the reference mockup, not the rounded outer display bezel.
 REFERENCE_DISPLAY_RECT = (191, 150, 508, 264)
+EXPORT_TEMPLATE_DISPLAY_RECT_FRAC = (
+    0.140278,
+    0.204167,
+    0.705556,
+    0.366667,
+)
 
 # Background-aligned hitboxes over the reference mockup.
 IMAGE_BUTTON_LAYOUT = [
@@ -268,6 +280,12 @@ class _UIState:
         self.background_scaled = None
         self.background_rect = None
         self.background_scale_key = None
+        self.export_template_surface = None
+        self.export_template_scale_key = None
+        self.export_template_scaled = None
+        self.export_display_rect = None
+        self.export_display_bg_scaled = None
+        self.export_display_bg_scale_key = None
 
         self.main_font = None
         self.label_font = None
@@ -297,6 +315,11 @@ class _UIState:
         self.recording_path = None
         self.recording_last_frame = None
         self.recording_next_frame_at = 0.0
+        self.recording_thread = None
+        self.recording_stop_event = None
+        self.recording_frame_lock = threading.Lock()
+        self.recording_error = None
+        self.recording_frame_dirty = True
 
 
 STATE = _UIState()
@@ -487,11 +510,128 @@ def _build_display_svg() -> str:
     return "\n".join(lines)
 
 
+def _load_export_template_surface():
+    if STATE.export_template_surface is not None:
+        return STATE.export_template_surface
+
+    for path in EXPORT_TEMPLATE_CANDIDATES:
+        if path.exists():
+            try:
+                STATE.export_template_surface = pygame.image.load(str(path)).convert_alpha()
+                break
+            except Exception:
+                STATE.export_template_surface = None
+
+    return STATE.export_template_surface
+
+
+def _export_template_display_rect_for(surface):
+    return _scale_export_display_rect(surface.get_size())
+
+
+def _scale_export_display_rect(size):
+    width, height = size
+    x_frac, y_frac, w_frac, h_frac = EXPORT_TEMPLATE_DISPLAY_RECT_FRAC
+    x = int(round(width * x_frac))
+    y = int(round(height * y_frac))
+    w = max(1, int(round(width * w_frac)))
+    h = max(1, int(round(height * h_frac)))
+    if x + w > width:
+        w = max(1, width - x)
+    if y + h > height:
+        h = max(1, height - y)
+    return pygame.Rect(x, y, w, h)
+
+
+def _get_scaled_export_template():
+    template = _load_export_template_surface()
+    if template is None:
+        return None, None
+
+    template_w, template_h = template.get_size()
+    scale = min(
+        1.0,
+        EXPORT_FRAME_MAX_DIM / max(1, template_w),
+        EXPORT_FRAME_MAX_DIM / max(1, template_h),
+    )
+    target_size = (
+        max(1, int(round(template_w * scale))),
+        max(1, int(round(template_h * scale))),
+    )
+
+    if (
+        STATE.export_template_scaled is None
+        or STATE.export_template_scale_key != target_size
+    ):
+        if target_size == (template_w, template_h):
+            STATE.export_template_scaled = template.copy()
+        else:
+            STATE.export_template_scaled = pygame.transform.smoothscale(template, target_size)
+        STATE.export_template_scale_key = target_size
+        STATE.export_display_rect = _scale_export_display_rect(target_size)
+
+    return STATE.export_template_scaled, STATE.export_display_rect
+
+
+def _get_scaled_export_display_background(size):
+    template = _load_export_template_surface()
+    if template is None:
+        return None
+
+    target_size = (max(1, int(size[0])), max(1, int(size[1])))
+    if (
+        STATE.export_display_bg_scaled is not None
+        and STATE.export_display_bg_scale_key == target_size
+    ):
+        return STATE.export_display_bg_scaled
+
+    crop_rect = _export_template_display_rect_for(template)
+    display_crop = template.subsurface(crop_rect).copy()
+    if display_crop.get_size() == target_size:
+        STATE.export_display_bg_scaled = display_crop
+    else:
+        STATE.export_display_bg_scaled = pygame.transform.smoothscale(display_crop, target_size)
+    STATE.export_display_bg_scale_key = target_size
+    return STATE.export_display_bg_scaled
+
+
+def _build_export_surface():
+    template_surface, display_rect = _get_scaled_export_template()
+    if template_surface is None or display_rect is None or STATE.lcd_surface is None:
+        return None
+
+    export_surface = template_surface.copy()
+    scaled_lcd = pygame.transform.scale(
+        STATE.lcd_surface,
+        (display_rect.width, display_rect.height),
+    )
+    export_surface.blit(scaled_lcd, display_rect.topleft)
+    return export_surface
+
+
+def _capture_recording_frame():
+    _draw_lcd_pixels()
+    export_surface = _build_export_surface()
+    if export_surface is not None:
+        return pygame.image.tobytes(export_surface, "RGB"), export_surface.get_size()
+    return pygame.image.tobytes(STATE.lcd_surface, "RGB"), (LCD_WIDTH, LCD_HEIGHT)
+
+
 def save_display_screenshot() -> Path:
     SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     millis = int((time.time() % 1.0) * 1000)
+    ensure_ui()
+    _draw_lcd_pixels()
+
+    export_surface = _build_export_surface()
+    if export_surface is not None:
+        filename = f"display_{stamp}_{millis:03d}.png"
+        output_path = SCREENSHOT_DIR / filename
+        pygame.image.save(export_surface, str(output_path))
+        return output_path
+
     filename = f"display_{stamp}_{millis:03d}.svg"
     output_path = SCREENSHOT_DIR / filename
     output_path.write_text(_build_display_svg(), encoding="utf-8")
@@ -512,15 +652,28 @@ def _recording_active() -> bool:
 
 
 def _capture_display_frame_bytes() -> bytes:
-    _draw_lcd_pixels()
-    return pygame.image.tobytes(STATE.lcd_surface, "RGB")
+    frame_bytes, _ = _capture_recording_frame()
+    return frame_bytes
+
+
+def _mark_lcd_dirty():
+    STATE.dirty = True
+    STATE.recording_frame_dirty = True
 
 
 def _clear_recording_state():
+    stop_event = STATE.recording_stop_event
+    if stop_event is not None:
+        stop_event.set()
+
     STATE.recording_process = None
     STATE.recording_path = None
     STATE.recording_last_frame = None
     STATE.recording_next_frame_at = 0.0
+    STATE.recording_thread = None
+    STATE.recording_stop_event = None
+    STATE.recording_error = None
+    STATE.recording_frame_dirty = True
     STATE.dirty = True
 
 
@@ -547,9 +700,21 @@ def _close_recording_process(process: subprocess.Popen[bytes], timeout: float = 
     return process.returncode, stderr_text
 
 
+def _join_recording_thread(timeout: float = 2.0):
+    thread = STATE.recording_thread
+    if thread is None or thread is threading.current_thread():
+        return
+    if thread.is_alive():
+        thread.join(timeout=timeout)
+
+
 def _abort_display_recording(detail: str) -> str:
     process = STATE.recording_process
     output_path = STATE.recording_path
+    stop_event = STATE.recording_stop_event
+    if stop_event is not None:
+        stop_event.set()
+    _join_recording_thread(timeout=1.0)
     _clear_recording_state()
 
     stderr_text = ""
@@ -580,18 +745,47 @@ def _write_recording_frame(frame_bytes: bytes) -> Optional[str]:
     return None
 
 
+def _refresh_recording_frame_cache():
+    frame_bytes = _capture_display_frame_bytes()
+    with STATE.recording_frame_lock:
+        STATE.recording_last_frame = frame_bytes
+        STATE.recording_frame_dirty = False
+
+
+def _recording_writer_loop(process: subprocess.Popen[bytes], stop_event: threading.Event):
+    frame_interval = 1.0 / VIDEO_FPS
+    next_frame_at = time.monotonic()
+
+    while not stop_event.is_set():
+        with STATE.recording_frame_lock:
+            frame_bytes = STATE.recording_last_frame
+
+        if frame_bytes is not None:
+            try:
+                process.stdin.write(frame_bytes)
+            except (BrokenPipeError, OSError) as exc:
+                STATE.recording_error = str(exc)
+                stop_event.set()
+                return
+
+        next_frame_at += frame_interval
+        delay = next_frame_at - time.monotonic()
+        if delay > 0:
+            stop_event.wait(delay)
+        else:
+            next_frame_at = time.monotonic()
+
+
 def _pump_video_recording(now: Optional[float] = None) -> Optional[str]:
-    if not _recording_active() or STATE.recording_last_frame is None:
+    del now
+
+    if not _recording_active():
         return None
 
-    if now is None:
-        now = time.monotonic()
-
-    while now >= STATE.recording_next_frame_at:
-        error = _write_recording_frame(STATE.recording_last_frame)
-        if error is not None:
-            return error
-        STATE.recording_next_frame_at += 1.0 / VIDEO_FPS
+    if STATE.recording_error is not None:
+        error = STATE.recording_error
+        STATE.recording_error = None
+        return _abort_display_recording(error)
 
     return None
 
@@ -603,6 +797,15 @@ def start_display_recording() -> Path:
         return STATE.recording_path
 
     output_path = _build_timestamped_output_path(VIDEO_DIR, "mp4")
+    initial_frame, frame_size = _capture_recording_frame()
+    frame_width, frame_height = frame_size
+
+    video_filter = "format=yuv420p"
+    if frame_size == (LCD_WIDTH, LCD_HEIGHT):
+        video_filter = (
+            f"scale={LCD_WIDTH * VIDEO_SCALE}:{LCD_HEIGHT * VIDEO_SCALE}:flags=neighbor,"
+            "format=yuv420p"
+        )
     command = [
         "ffmpeg",
         "-hide_banner",
@@ -614,17 +817,17 @@ def start_display_recording() -> Path:
         "-pixel_format",
         "rgb24",
         "-video_size",
-        f"{LCD_WIDTH}x{LCD_HEIGHT}",
+        f"{frame_width}x{frame_height}",
         "-framerate",
         str(VIDEO_FPS),
         "-i",
         "-",
         "-vf",
-        f"scale={LCD_WIDTH * VIDEO_SCALE}:{LCD_HEIGHT * VIDEO_SCALE}:flags=neighbor,format=yuv420p",
+        video_filter,
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "ultrafast",
         "-movflags",
         "+faststart",
         str(output_path),
@@ -642,12 +845,20 @@ def start_display_recording() -> Path:
 
     STATE.recording_process = process
     STATE.recording_path = output_path
-    STATE.recording_last_frame = _capture_display_frame_bytes()
+    with STATE.recording_frame_lock:
+        STATE.recording_last_frame = initial_frame
+        STATE.recording_frame_dirty = False
+    STATE.recording_error = None
     STATE.recording_next_frame_at = time.monotonic() + (1.0 / VIDEO_FPS)
-
-    error = _write_recording_frame(STATE.recording_last_frame)
-    if error is not None:
-        raise OSError(error)
+    stop_event = threading.Event()
+    STATE.recording_stop_event = stop_event
+    STATE.recording_thread = threading.Thread(
+        target=_recording_writer_loop,
+        args=(process, stop_event),
+        name="calsci-sim-recorder",
+        daemon=True,
+    )
+    STATE.recording_thread.start()
 
     STATE.dirty = True
     return output_path
@@ -657,18 +868,24 @@ def stop_display_recording() -> Path:
     if not _recording_active() or STATE.recording_path is None:
         raise RuntimeError("display recording is not active")
 
-    error = _pump_video_recording()
-    if error is not None:
-        raise OSError(error)
+    if STATE.recording_frame_dirty:
+        _refresh_recording_frame_cache()
 
     process = STATE.recording_process
     output_path = STATE.recording_path
+    stop_event = STATE.recording_stop_event
+    if stop_event is not None:
+        stop_event.set()
+    _join_recording_thread(timeout=2.0)
+    worker_error = STATE.recording_error
     _clear_recording_state()
 
     returncode, stderr_text = _close_recording_process(process)
     if returncode != 0:
         detail = stderr_text or f"ffmpeg exited with status {returncode}"
         raise OSError(detail)
+    if worker_error:
+        raise OSError(worker_error)
 
     return output_path
 
@@ -1369,41 +1586,47 @@ def request_render():
 
 def set_invert(enabled: bool):
     STATE.invert = bool(enabled)
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def set_display_on(enabled: bool):
     STATE.display_on = bool(enabled)
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def set_all_points_on(enabled: bool):
     STATE.all_points_on = bool(enabled)
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def clear_framebuffer():
     STATE.framebuffer[:] = b"\x00" * len(STATE.framebuffer)
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def set_framebuffer(data):
     data = bytes(data)
     STATE.framebuffer[:] = data[: len(STATE.framebuffer)]
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def write_page_byte(page: int, col: int, value: int):
     if not (0 <= page < 8 and 0 <= col < LCD_WIDTH):
         return
     STATE.framebuffer[page * LCD_WIDTH + col] = value & 0xFF
-    STATE.dirty = True
+    _mark_lcd_dirty()
 
 
 def _draw_lcd_pixels():
-    background_mode = _load_background_surface() is not None
-    off_color = LCD_OFF_BACKGROUND if background_mode else LCD_OFF
-    STATE.lcd_surface.fill((*off_color, 255))
+    transparent_off_pixels = (
+        _load_background_surface() is not None
+        or _load_export_template_surface() is not None
+    )
+    off_color = LCD_OFF_BACKGROUND if transparent_off_pixels else LCD_OFF
+    if transparent_off_pixels:
+        STATE.lcd_surface.fill((0, 0, 0, 0))
+    else:
+        STATE.lcd_surface.fill((*off_color, 255))
 
     for x in range(LCD_WIDTH):
         for page in range(8):
@@ -1417,6 +1640,8 @@ def _draw_lcd_pixels():
                     on = 0 if on else 1
                 if STATE.display_on and on:
                     color = (*LCD_ON, 255)
+                elif transparent_off_pixels:
+                    color = (0, 0, 0, 0)
                 else:
                     color = (*off_color, 255)
                 STATE.lcd_surface.set_at((x, y_base + bit), color)
@@ -1465,6 +1690,9 @@ def render(force: bool = False):
     _draw_lcd_pixels()
 
     disp = _display_rect(STATE.screen)
+    live_display_bg = _get_scaled_export_display_background((disp.width, disp.height))
+    if live_display_bg is not None:
+        STATE.screen.blit(live_display_bg, (disp.x, disp.y))
     scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
     STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
 
@@ -1477,7 +1705,8 @@ def render(force: bool = False):
         item.widget.draw(STATE.screen, pressed=amount > 0.0, amount=amount)
 
     if _recording_active():
-        STATE.recording_last_frame = pygame.image.tobytes(STATE.lcd_surface, "RGB")
+        if STATE.recording_frame_dirty:
+            _refresh_recording_frame_cache()
         _draw_recording_indicator(STATE.screen, disp)
 
     pygame.display.flip()

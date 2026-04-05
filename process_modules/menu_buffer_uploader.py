@@ -31,7 +31,7 @@ VISIBLE_ROWS = 3
 LIST_X = 2
 LIST_Y = 11
 LIST_W = 124
-LIST_H = 44
+LIST_H = 45
 ROW_HEIGHT = 13
 ROW_GAP = 1
 SCROLL_W = 4
@@ -132,6 +132,8 @@ class Tbf:
     def _normalize_cursor(self, items):
         if not items:
             self.m_b.menu_cursor = 0
+            if hasattr(self.m_b, "menu_display_position"):
+                self.m_b.menu_display_position = 0
             if hasattr(self.m_b, "display_cursor"):
                 self.m_b.display_cursor = 0
             return 0
@@ -141,9 +143,26 @@ class Tbf:
         elif self.m_b.menu_cursor >= len(items):
             self.m_b.menu_cursor = len(items) - 1
 
-        if hasattr(self.m_b, "display_cursor"):
-            self.m_b.display_cursor = self.m_b.menu_cursor
         return self.m_b.menu_cursor
+
+    def _visible_window(self, item_count, selected_index):
+        if item_count <= VISIBLE_ROWS:
+            top_index = 0
+        else:
+            max_top = item_count - VISIBLE_ROWS
+            try:
+                top_index = int(getattr(self.m_b, "menu_display_position", 0) or 0)
+            except Exception:
+                top_index = 0
+            top_index = min(max(0, top_index), max_top)
+            if selected_index < top_index or selected_index >= top_index + VISIBLE_ROWS:
+                top_index = self._top_index(item_count, selected_index)
+
+        if hasattr(self.m_b, "menu_display_position"):
+            self.m_b.menu_display_position = top_index
+        if hasattr(self.m_b, "display_cursor"):
+            self.m_b.display_cursor = selected_index - top_index
+        return top_index
 
     def _top_index(self, item_count, selected_index):
         if item_count <= VISIBLE_ROWS:
@@ -215,7 +234,7 @@ class Tbf:
         return text_value
 
     def _draw_scrollbar(self, item_count, top_index):
-        track_x = LIST_X + LIST_W - SCROLL_W - 1
+        track_x = LIST_X + LIST_W - SCROLL_W - 2
         track_y = LIST_Y + 2
         track_h = LIST_H - 4
 
@@ -236,7 +255,7 @@ class Tbf:
         state = str(state or "")
         if state == "":
             return
-        self._fill_rect(0, STATUS_Y - 1, DISPLAY_WIDTH, 9, 1)
+        self._fill_rect(0, STATUS_Y, DISPLAY_WIDTH, 8, 1)
         self._draw_text_center(state, STATUS_Y, color=0)
 
     def _flush(self):
@@ -259,7 +278,7 @@ class Tbf:
 
         items = [_display_text(item) for item in getattr(self.m_b, "menu_list", [])]
         selected_index = self._normalize_cursor(items)
-        top_index = self._top_index(len(items), selected_index)
+        top_index = self._visible_window(len(items), selected_index)
         state = str(state or "")
 
         self._clear()
