@@ -29,15 +29,39 @@ Or use the helper script from the repo root:
 ./bootstrap_latest_submodules.sh
 ```
 
+### Linux / macOS
+
 ```bash
 cd calsci_simulator
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python main.py
+```
+
+### Windows PowerShell
+
+```powershell
+cd calsci_simulator
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python main.py
+```
+
+### Windows Command Prompt
+
+```cmd
+cd calsci_simulator
+py -m venv .venv
+.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
 python main.py
 ```
 
 Note: plain `git clone --recurse-submodules` checks out the simulator's pinned submodule commit. Use the `--remote-submodules` flow above if you want the newest `calsci_latest_itr/main` tip on clone.
+
+If PowerShell blocks script activation on Windows, run the Command Prompt variant instead.
 
 ## Build Standalone Ubuntu Bundle
 
