@@ -793,6 +793,26 @@ class _MathEditor:
             self._collect_positions(node.argument, positions)
 
     def _move_linear(self, step):
+        step = int(step)
+        slot = self.cursor_slot
+        owner = getattr(slot, "owner", None)
+
+        if isinstance(owner, FractionNode):
+            parent_slot = getattr(owner, "parent_slot", None)
+            if parent_slot is not None:
+                try:
+                    owner_index = parent_slot.items.index(owner)
+                except Exception:
+                    owner_index = -1
+
+                if owner_index >= 0:
+                    if step > 0 and slot is owner.numerator and self.cursor_index >= len(slot.items):
+                        self._set_cursor(parent_slot, owner_index + 1)
+                        return
+                    if step < 0 and slot is owner.denominator and self.cursor_index <= 0:
+                        self._set_cursor(parent_slot, owner_index)
+                        return
+
         positions = []
         self._collect_positions(self.root, positions)
         if not positions:
@@ -811,7 +831,7 @@ class _MathEditor:
             self._set_cursor(self.root, 0)
             return
 
-        target = (current + int(step)) % len(positions)
+        target = (current + step) % len(positions)
         self._set_cursor(positions[target][0], positions[target][1])
 
     def _parent_slot(self, slot):
