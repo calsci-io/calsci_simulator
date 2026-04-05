@@ -56,7 +56,9 @@ def _resolve_calsci_dir(simulator_dir: Path) -> Path:
             return candidate
 
     raise RuntimeError(
-        "calsci_latest_itr directory not found. Set CALSCI_APP_DIR to override the app tree."
+        "calsci_latest_itr directory not found. Run "
+        "'git submodule update --init --recursive --remote' from the simulator repo "
+        "or set CALSCI_APP_DIR to override the app tree."
     )
 
 

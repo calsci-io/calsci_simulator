@@ -110,7 +110,10 @@ def main():
     calsci_dir = _find_calsci_dir(simulator_dir)
 
     if calsci_dir is None:
-        raise OSError("calsci_latest_itr directory not found in simulator repo")
+        raise OSError(
+            "calsci_latest_itr directory not found in simulator repo. Run "
+            "'git submodule update --init --recursive --remote' from the simulator repo."
+        )
 
     bootstrap(unix_port_dir=unix_port_dir, calsci_dir=calsci_dir, simulator_dir=simulator_dir)
     _print_lvgl_runtime()

@@ -11,16 +11,22 @@ All app/runtime logic is imported and executed directly from the bundled `./cals
 
 ## Run
 
-Clone with the submodule:
+Clone with the latest `calsci_latest_itr/main` submodule commit:
 
 ```bash
-git clone --recurse-submodules https://github.com/calsci-io/calsci_simulator.git
+git clone --recurse-submodules --remote-submodules https://github.com/calsci-io/calsci_simulator.git
 ```
 
 If you already cloned without submodules:
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive --remote
+```
+
+Or use the helper script from the repo root:
+
+```bash
+./bootstrap_latest_submodules.sh
 ```
 
 ```bash
@@ -30,6 +36,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
+
+Note: plain `git clone --recurse-submodules` checks out the simulator's pinned submodule commit. Use the `--remote-submodules` flow above if you want the newest `calsci_latest_itr/main` tip on clone.
 
 ## Build Standalone Ubuntu Bundle
 
