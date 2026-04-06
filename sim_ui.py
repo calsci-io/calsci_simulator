@@ -1384,7 +1384,66 @@ def _queue_key(row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     _set_recent_widget(widget_id)
 
 
+def _live_keymap():
+    try:
+        from data_modules.object_handler import keymap as live_keymap  # type: ignore
+
+        return live_keymap
+    except Exception:
+        return None
+
+
+def _active_keypad_layout():
+    live_keymap = _live_keymap()
+    if live_keymap is None:
+        return KEYPAD_DEFAULT
+
+    try:
+        state = str(getattr(live_keymap, "state", "d") or "d")
+        states = getattr(live_keymap, "states", {}) or {}
+        layout = states.get(state)
+        if layout:
+            return layout
+    except Exception:
+        pass
+
+    return KEYPAD_DEFAULT
+
+
+def _coord_for_output_in_layout(target: str, layout) -> Optional[tuple[int, int]]:
+    target = str(target or "")
+    if target == "":
+        return None
+
+    for row_idx, row in enumerate(layout):
+        for col_idx, value in enumerate(row):
+            if value == target:
+                return (row_idx, col_idx)
+
+    if len(target) == 1 and target.isalpha():
+        folded = target.casefold()
+        for row_idx, row in enumerate(layout):
+            for col_idx, value in enumerate(row):
+                if (
+                    isinstance(value, str)
+                    and len(value) == 1
+                    and value.isalpha()
+                    and value.casefold() == folded
+                ):
+                    return (row_idx, col_idx)
+
+    return None
+
+
 def _coord_for_key(key: str):
+    key = str(key or "")
+    if key == "":
+        return None
+
+    coord = _coord_for_output_in_layout(key, _active_keypad_layout())
+    if coord is not None:
+        return coord
+
     coord = KEY_TO_COORD.get(key)
     if coord is None:
         return None
@@ -1498,6 +1557,10 @@ def _keydown_action(event):
 
     key_name = PRINTABLE_SHORTCUTS.get(event.unicode)
     if key_name is not None:
+        return ("queue", key_name)
+
+    key_name = event.unicode
+    if isinstance(key_name, str) and key_name not in ("", "\r", "\n", "\t"):
         return ("queue", key_name)
 
     return (None, None)
