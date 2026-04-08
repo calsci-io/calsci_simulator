@@ -194,6 +194,56 @@ CLICK_SAMPLE_RATE = 22050
 CLICK_VOLUME = 0.22
 CLICK_DURATION_SECONDS = 0.035
 
+SCREENSHOT_MODE_SVG = "svg"
+SCREENSHOT_MODE_DISPLAY = "display"
+SCREENSHOT_MODE_SIMULATOR = "simulator"
+
+VIDEO_MODE_DISPLAY = "display"
+VIDEO_MODE_SIMULATOR = "simulator"
+
+MENU_TAB_SCREENSHOT = "screenshot"
+MENU_TAB_VIDEO = "video"
+
+SCREENSHOT_MODE_OPTIONS = (
+    (SCREENSHOT_MODE_SVG, "SVG Pixels"),
+    (SCREENSHOT_MODE_DISPLAY, "Display Background"),
+    (SCREENSHOT_MODE_SIMULATOR, "Simulator Screenshot"),
+)
+
+VIDEO_MODE_OPTIONS = (
+    (VIDEO_MODE_SIMULATOR, "Simulator Video"),
+    (VIDEO_MODE_DISPLAY, "Display Background"),
+)
+
+SCREENSHOT_FILENAME_PREFIX = {
+    SCREENSHOT_MODE_SVG: "display_svg",
+    SCREENSHOT_MODE_DISPLAY: "display_background",
+    SCREENSHOT_MODE_SIMULATOR: "simulator",
+}
+
+VIDEO_FILENAME_PREFIX = {
+    VIDEO_MODE_SIMULATOR: "simulator",
+    VIDEO_MODE_DISPLAY: "display_background",
+}
+
+MENU_BG = (246, 246, 246)
+MENU_BORDER = (72, 72, 72)
+MENU_SHADOW = (30, 30, 30, 50)
+MENU_TEXT = (22, 22, 22)
+MENU_MUTED = (92, 92, 92)
+MENU_TAB_ACTIVE = (227, 227, 227)
+MENU_TAB_INACTIVE = (212, 212, 212)
+MENU_BUTTON_BG = (236, 236, 236)
+MENU_BUTTON_ACTIVE = (217, 227, 241)
+MENU_ACTION_BG = (35, 35, 35)
+MENU_ACTION_TEXT = (255, 255, 255)
+MENU_FIELD_BG = (255, 255, 255)
+MENU_FIELD_ACTIVE = (225, 236, 252)
+MENU_ACCENT = (40, 111, 188)
+MENU_WHITE = (255, 255, 255)
+VIDEO_LIMIT_FIELD_ID = "video_limit"
+VIDEO_LIMIT_MAX_CHARS = 8
+
 # Active LCD plane measured from the inner sharp-edged screen cutout
 # in the reference mockup, not the rounded outer display bezel.
 REFERENCE_DISPLAY_RECT = (191, 150, 508, 264)
@@ -295,6 +345,9 @@ class _UIState:
         self.main_font = None
         self.label_font = None
         self.tiny_label_font = None
+        self.menu_font = None
+        self.menu_label_font = None
+        self.menu_help_font = None
         self.fallback_font = None
         self.emoji_font = None
         self._last_scale = None
@@ -325,6 +378,15 @@ class _UIState:
         self.recording_frame_lock = threading.Lock()
         self.recording_error = None
         self.recording_frame_dirty = True
+        self.recording_mode = VIDEO_MODE_SIMULATOR
+        self.recording_deadline_at = None
+
+        self.menu_open = False
+        self.menu_tab = MENU_TAB_SCREENSHOT
+        self.menu_focus_field = None
+        self.screenshot_mode = SCREENSHOT_MODE_SIMULATOR
+        self.video_mode = VIDEO_MODE_SIMULATOR
+        self.video_limit_input = ""
 
 
 STATE = _UIState()
@@ -616,12 +678,46 @@ def _get_scaled_export_display_background(size):
     return STATE.export_display_bg_scaled
 
 
-def _build_export_surface():
-    template_surface, display_rect = _get_scaled_export_template()
-    if template_surface is None or display_rect is None or STATE.lcd_surface is None:
+def _display_capture_size():
+    _template_surface, display_rect = _get_scaled_export_template()
+    if display_rect is not None:
+        return display_rect.size
+    return (LCD_WIDTH * VIDEO_SCALE, LCD_HEIGHT * VIDEO_SCALE)
+
+
+def _build_display_background_surface(size):
+    background = _get_scaled_export_display_background(size)
+    if background is not None:
+        return background.copy()
+
+    surface = pygame.Surface(size)
+    surface.fill(LCD_OFF_BACKGROUND)
+    return surface
+
+
+def _build_display_export_surface():
+    if STATE.lcd_surface is None:
         return None
 
-    export_surface = template_surface.copy()
+    target_size = _display_capture_size()
+    export_surface = _build_display_background_surface(target_size)
+    scaled_lcd = pygame.transform.scale(STATE.lcd_surface, target_size)
+    export_surface.blit(scaled_lcd, (0, 0))
+    return export_surface
+
+
+def _build_simulator_export_surface(white_background=False):
+    template_surface, display_rect = _get_scaled_export_template()
+    if template_surface is None or display_rect is None or STATE.lcd_surface is None:
+        return _build_display_export_surface()
+
+    if white_background:
+        export_surface = pygame.Surface(template_surface.get_size())
+        export_surface.fill(MENU_WHITE)
+    else:
+        export_surface = pygame.Surface(template_surface.get_size(), pygame.SRCALPHA)
+        export_surface.fill((0, 0, 0, 0))
+    export_surface.blit(template_surface, (0, 0))
     scaled_lcd = pygame.transform.scale(
         STATE.lcd_surface,
         (display_rect.width, display_rect.height),
@@ -630,15 +726,24 @@ def _build_export_surface():
     return export_surface
 
 
-def _capture_recording_frame():
+def _build_capture_surface(mode, for_video=False):
+    if mode == SCREENSHOT_MODE_DISPLAY or mode == VIDEO_MODE_DISPLAY:
+        return _build_display_export_surface()
+    if mode == SCREENSHOT_MODE_SIMULATOR or mode == VIDEO_MODE_SIMULATOR:
+        return _build_simulator_export_surface(white_background=for_video)
+    return None
+
+
+def _capture_recording_frame(mode=None):
     _draw_lcd_pixels()
-    export_surface = _build_export_surface()
+    selected_mode = mode or STATE.recording_mode or STATE.video_mode
+    export_surface = _build_capture_surface(selected_mode, for_video=True)
     if export_surface is not None:
         return pygame.image.tobytes(export_surface, "RGB"), export_surface.get_size()
     return pygame.image.tobytes(STATE.lcd_surface, "RGB"), (LCD_WIDTH, LCD_HEIGHT)
 
 
-def save_display_screenshot() -> Path:
+def save_display_screenshot(mode=None) -> Path:
     SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -646,25 +751,32 @@ def save_display_screenshot() -> Path:
     ensure_ui()
     _draw_lcd_pixels()
 
-    export_surface = _build_export_surface()
+    selected_mode = mode or STATE.screenshot_mode
+    if selected_mode == SCREENSHOT_MODE_SVG:
+        filename = f"{SCREENSHOT_FILENAME_PREFIX[selected_mode]}_{stamp}_{millis:03d}.svg"
+        output_path = SCREENSHOT_DIR / filename
+        output_path.write_text(_build_display_svg(), encoding="utf-8")
+        return output_path
+
+    export_surface = _build_capture_surface(selected_mode, for_video=False)
     if export_surface is not None:
-        filename = f"display_{stamp}_{millis:03d}.png"
+        filename = f"{SCREENSHOT_FILENAME_PREFIX[selected_mode]}_{stamp}_{millis:03d}.png"
         output_path = SCREENSHOT_DIR / filename
         pygame.image.save(export_surface, str(output_path))
         return output_path
 
-    filename = f"display_{stamp}_{millis:03d}.svg"
+    filename = f"{SCREENSHOT_FILENAME_PREFIX[SCREENSHOT_MODE_SVG]}_{stamp}_{millis:03d}.svg"
     output_path = SCREENSHOT_DIR / filename
     output_path.write_text(_build_display_svg(), encoding="utf-8")
     return output_path
 
 
-def _build_timestamped_output_path(directory: Path, suffix: str) -> Path:
+def _build_timestamped_output_path(directory: Path, prefix: str, suffix: str) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     millis = int((time.time() % 1.0) * 1000)
-    filename = f"{VIDEO_FILENAME_PREFIX}_{stamp}_{millis:03d}.{suffix}"
+    filename = f"{prefix}_{stamp}_{millis:03d}.{suffix}"
     return directory / filename
 
 
@@ -695,6 +807,8 @@ def _clear_recording_state():
     STATE.recording_stop_event = None
     STATE.recording_error = None
     STATE.recording_frame_dirty = True
+    STATE.recording_mode = STATE.video_mode
+    STATE.recording_deadline_at = None
     STATE.dirty = True
 
 
@@ -798,7 +912,7 @@ def _recording_writer_loop(process: subprocess.Popen[bytes], stop_event: threadi
 
 
 def _pump_video_recording(now: Optional[float] = None) -> Optional[str]:
-    del now
+    current_time = time.monotonic() if now is None else now
 
     if not _recording_active():
         return None
@@ -808,17 +922,31 @@ def _pump_video_recording(now: Optional[float] = None) -> Optional[str]:
         STATE.recording_error = None
         return _abort_display_recording(error)
 
+    deadline = STATE.recording_deadline_at
+    if deadline is not None and current_time >= deadline:
+        try:
+            output_path = stop_display_recording()
+        except OSError as exc:
+            print(f"[sim_ui] recording failed: {exc}")
+        else:
+            print(f"[sim_ui] recording saved: {output_path}")
+
     return None
 
 
-def start_display_recording() -> Path:
+def start_display_recording(mode=None, limit_seconds=None) -> Path:
     ensure_ui()
 
     if _recording_active() and STATE.recording_path is not None:
         return STATE.recording_path
 
-    output_path = _build_timestamped_output_path(VIDEO_DIR, "mp4")
-    initial_frame, frame_size = _capture_recording_frame()
+    selected_mode = mode or STATE.video_mode
+    output_path = _build_timestamped_output_path(
+        VIDEO_DIR,
+        VIDEO_FILENAME_PREFIX.get(selected_mode, "video"),
+        "mp4",
+    )
+    initial_frame, frame_size = _capture_recording_frame(mode=selected_mode)
     frame_width, frame_height = frame_size
 
     video_filter = "format=yuv420p"
@@ -866,11 +994,16 @@ def start_display_recording() -> Path:
 
     STATE.recording_process = process
     STATE.recording_path = output_path
+    STATE.recording_mode = selected_mode
     with STATE.recording_frame_lock:
         STATE.recording_last_frame = initial_frame
         STATE.recording_frame_dirty = False
     STATE.recording_error = None
     STATE.recording_next_frame_at = time.monotonic() + (1.0 / VIDEO_FPS)
+    if limit_seconds is not None and limit_seconds > 0:
+        STATE.recording_deadline_at = time.monotonic() + float(limit_seconds)
+    else:
+        STATE.recording_deadline_at = None
     stop_event = threading.Event()
     STATE.recording_stop_event = stop_event
     STATE.recording_thread = threading.Thread(
@@ -968,10 +1101,16 @@ def _ensure_fonts(scale):
     main_size = max(8, int(round(14 * scale)))
     label_size = max(7, int(round(12 * scale)))
     tiny_size = max(6, int(round(9 * scale)))
+    menu_size = max(18, int(round(26 * scale)))
+    menu_label_size = max(16, int(round(22 * scale)))
+    menu_help_size = max(14, int(round(18 * scale)))
 
     STATE.main_font = _load_font("DejaVuSans.ttf", main_size)
     STATE.label_font = _load_font("DejaVuSans.ttf", label_size)
     STATE.tiny_label_font = _load_font("DejaVuSans.ttf", tiny_size)
+    STATE.menu_font = _load_font("DejaVuSans.ttf", menu_size)
+    STATE.menu_label_font = _load_font("DejaVuSans.ttf", menu_label_size)
+    STATE.menu_help_font = _load_font("DejaVuSans.ttf", menu_help_size)
     STATE.fallback_font = _load_font("notosymbols2.ttf", main_size)
     STATE.emoji_font = _load_font("notoemoji.ttf", main_size)
     STATE._last_scale = scale
@@ -995,6 +1134,363 @@ def _font_for_text(text, tiny=False, small=False):
         font = STATE.emoji_font
 
     return font
+
+
+def _selected_video_limit_seconds():
+    raw = str(STATE.video_limit_input or "").strip()
+    if raw == "":
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return value
+
+
+def _draw_menu_text(screen, text, rect, color=MENU_TEXT, center=False, small=False, tiny=False):
+    font = STATE.menu_help_font if tiny else STATE.menu_label_font if small else STATE.menu_font
+    lines = str(text).splitlines() or [""]
+    line_height = font.get_linesize()
+    total_height = line_height * len(lines)
+    start_y = rect.centery - (total_height // 2)
+
+    for idx, line in enumerate(lines):
+        rendered = font.render(line, True, color)
+        if center:
+            text_rect = rendered.get_rect(center=(rect.centerx, start_y + (idx * line_height) + (line_height // 2)))
+        else:
+            text_rect = rendered.get_rect(midleft=(rect.x, start_y + (idx * line_height) + (line_height // 2)))
+        screen.blit(rendered, text_rect)
+
+
+def _menu_layout(screen):
+    scale = get_scale(screen)
+    margin = max(14, int(round(20 * scale)))
+    gap = max(8, int(round(12 * scale)))
+    padding = max(14, int(round(18 * scale)))
+    burger_w = max(54, int(round(66 * scale)))
+    burger_h = max(42, int(round(52 * scale)))
+    available_w = max(220, screen.get_width() - (margin * 2))
+    panel_w = min(available_w, max(360, int(round(430 * scale))))
+    tab_h = max(40, int(round(48 * scale)))
+    option_h = max(42, int(round(50 * scale)))
+    field_h = max(44, int(round(52 * scale)))
+    action_h = max(46, int(round(54 * scale)))
+
+    burger_rect = pygame.Rect(margin, margin, burger_w, burger_h)
+    panel_rect = pygame.Rect(margin, burger_rect.bottom + gap, panel_w, 10)
+
+    tabs_y = panel_rect.y + padding
+    tab_w = (panel_w - (padding * 2) - gap) // 2
+    tab_screenshot = pygame.Rect(panel_rect.x + padding, tabs_y, tab_w, tab_h)
+    tab_video = pygame.Rect(tab_screenshot.right + gap, tabs_y, tab_w, tab_h)
+
+    content_x = panel_rect.x + padding
+    content_w = panel_w - (padding * 2)
+    y = tab_screenshot.bottom + gap
+
+    screenshot_rows = []
+    for idx, (mode, _label) in enumerate(SCREENSHOT_MODE_OPTIONS):
+        row_rect = pygame.Rect(content_x, y + idx * (option_h + gap), content_w, option_h)
+        screenshot_rows.append((mode, row_rect))
+    screenshot_button = pygame.Rect(
+        content_x,
+        screenshot_rows[-1][1].bottom + gap,
+        content_w,
+        action_h,
+    )
+    screenshot_help = pygame.Rect(
+        content_x,
+        screenshot_button.bottom + gap,
+        content_w,
+        max(34, int(round(44 * scale))),
+    )
+    screenshot_bottom = screenshot_help.bottom
+
+    video_rows = []
+    y_video = y
+    for idx, (mode, _label) in enumerate(VIDEO_MODE_OPTIONS):
+        row_rect = pygame.Rect(content_x, y_video + idx * (option_h + gap), content_w, option_h)
+        video_rows.append((mode, row_rect))
+    video_label = pygame.Rect(
+        content_x,
+        video_rows[-1][1].bottom + gap,
+        content_w,
+        max(24, int(round(28 * scale))),
+    )
+    video_field = pygame.Rect(content_x, video_label.bottom + gap, content_w, field_h)
+    video_button = pygame.Rect(content_x, video_field.bottom + gap, content_w, action_h)
+    video_help = pygame.Rect(
+        content_x,
+        video_button.bottom + gap,
+        content_w,
+        max(44, int(round(58 * scale))),
+    )
+    video_bottom = video_help.bottom
+
+    panel_rect.height = (screenshot_bottom if STATE.menu_tab == MENU_TAB_SCREENSHOT else video_bottom) - panel_rect.y + padding
+
+    return {
+        "burger": burger_rect,
+        "panel": panel_rect,
+        "tab_screenshot": tab_screenshot,
+        "tab_video": tab_video,
+        "screenshot_rows": screenshot_rows,
+        "screenshot_button": screenshot_button,
+        "screenshot_help": screenshot_help,
+        "video_rows": video_rows,
+        "video_label": video_label,
+        "video_field": video_field,
+        "video_button": video_button,
+        "video_help": video_help,
+    }
+
+
+def _draw_burger_button(screen, rect, open_state):
+    fill = MENU_BUTTON_ACTIVE if open_state else MENU_BUTTON_BG
+    pygame.draw.rect(screen, fill, rect, border_radius=10)
+    pygame.draw.rect(screen, MENU_BORDER, rect, width=1, border_radius=10)
+
+    line_margin_x = max(10, rect.width // 5)
+    line_gap = max(5, rect.height // 6)
+    line_y = rect.y + rect.height // 2 - line_gap
+    for idx in range(3):
+        start = (rect.x + line_margin_x, line_y + (idx * line_gap))
+        end = (rect.right - line_margin_x, line_y + (idx * line_gap))
+        pygame.draw.line(screen, MENU_TEXT, start, end, width=3)
+
+
+def _draw_menu_option_row(screen, rect, label, selected):
+    fill = MENU_BUTTON_ACTIVE if selected else MENU_BUTTON_BG
+    pygame.draw.rect(screen, fill, rect, border_radius=10)
+    pygame.draw.rect(screen, MENU_BORDER, rect, width=1, border_radius=10)
+
+    radio_radius = max(9, min(12, rect.height // 4))
+    radio_center = (rect.x + radio_radius + 16, rect.centery)
+    pygame.draw.circle(screen, MENU_BORDER, radio_center, radio_radius, width=2)
+    if selected:
+        pygame.draw.circle(screen, MENU_ACCENT, radio_center, max(3, radio_radius - 4))
+
+    text_rect = pygame.Rect(radio_center[0] + radio_radius + 14, rect.y, rect.width - 56, rect.height)
+    _draw_menu_text(screen, label, text_rect, color=MENU_TEXT, small=False)
+
+
+def _draw_menu_action_button(screen, rect, label, destructive=False):
+    fill = (176, 40, 40) if destructive else MENU_ACTION_BG
+    pygame.draw.rect(screen, fill, rect, border_radius=10)
+    pygame.draw.rect(screen, MENU_BORDER, rect, width=1, border_radius=10)
+    _draw_menu_text(screen, label, rect, color=MENU_ACTION_TEXT, center=True, small=False)
+
+
+def _draw_menu_field(screen, rect, text_value, active=False):
+    fill = MENU_FIELD_ACTIVE if active else MENU_FIELD_BG
+    pygame.draw.rect(screen, fill, rect, border_radius=10)
+    pygame.draw.rect(screen, MENU_ACCENT if active else MENU_BORDER, rect, width=2 if active else 1, border_radius=10)
+    display_value = text_value if text_value else "blank = manual stop"
+    display_color = MENU_TEXT if text_value else MENU_MUTED
+    text_rect = pygame.Rect(rect.x + 14, rect.y, rect.width - 28, rect.height)
+    _draw_menu_text(screen, display_value, text_rect, color=display_color, small=True)
+
+    if active:
+        font = STATE.menu_label_font
+        rendered = font.render(display_value, True, display_color)
+        caret_x = min(rect.right - 10, text_rect.x + rendered.get_width() + 2)
+        caret_top = rect.y + 8
+        caret_bottom = rect.bottom - 8
+        pygame.draw.line(screen, MENU_ACCENT, (caret_x, caret_top), (caret_x, caret_bottom), width=2)
+
+
+def _draw_capture_menu(screen):
+    layout = _menu_layout(screen)
+    _draw_burger_button(screen, layout["burger"], STATE.menu_open)
+    if not STATE.menu_open:
+        return
+
+    shadow_rect = layout["panel"].move(4, 4)
+    shadow = pygame.Surface(shadow_rect.size, pygame.SRCALPHA)
+    shadow.fill((0, 0, 0, 0))
+    pygame.draw.rect(shadow, MENU_SHADOW, shadow.get_rect(), border_radius=14)
+    screen.blit(shadow, shadow_rect.topleft)
+
+    pygame.draw.rect(screen, MENU_BG, layout["panel"], border_radius=14)
+    pygame.draw.rect(screen, MENU_BORDER, layout["panel"], width=1, border_radius=14)
+
+    screenshot_fill = MENU_TAB_ACTIVE if STATE.menu_tab == MENU_TAB_SCREENSHOT else MENU_TAB_INACTIVE
+    video_fill = MENU_TAB_ACTIVE if STATE.menu_tab == MENU_TAB_VIDEO else MENU_TAB_INACTIVE
+    pygame.draw.rect(screen, screenshot_fill, layout["tab_screenshot"], border_radius=10)
+    pygame.draw.rect(screen, video_fill, layout["tab_video"], border_radius=10)
+    pygame.draw.rect(screen, MENU_BORDER, layout["tab_screenshot"], width=1, border_radius=10)
+    pygame.draw.rect(screen, MENU_BORDER, layout["tab_video"], width=1, border_radius=10)
+    _draw_menu_text(screen, "Screenshot", layout["tab_screenshot"], center=True, small=False)
+    _draw_menu_text(screen, "Video", layout["tab_video"], center=True, small=False)
+
+    if STATE.menu_tab == MENU_TAB_SCREENSHOT:
+        for mode, rect in layout["screenshot_rows"]:
+            label = dict(SCREENSHOT_MODE_OPTIONS).get(mode, mode)
+            _draw_menu_option_row(screen, rect, label, mode == STATE.screenshot_mode)
+        _draw_menu_action_button(screen, layout["screenshot_button"], "Save Screenshot")
+        _draw_menu_text(
+            screen,
+            "SVG, display-only,\nor full simulator export.",
+            layout["screenshot_help"],
+            color=MENU_MUTED,
+            tiny=True,
+        )
+    else:
+        for mode, rect in layout["video_rows"]:
+            label = dict(VIDEO_MODE_OPTIONS).get(mode, mode)
+            _draw_menu_option_row(screen, rect, label, mode == STATE.video_mode)
+        _draw_menu_text(
+            screen,
+            "Video Limit (seconds)",
+            layout["video_label"],
+            color=MENU_TEXT,
+            small=False,
+        )
+        _draw_menu_field(
+            screen,
+            layout["video_field"],
+            STATE.video_limit_input,
+            active=STATE.menu_focus_field == VIDEO_LIMIT_FIELD_ID,
+        )
+        _draw_menu_action_button(
+            screen,
+            layout["video_button"],
+            "Stop Recording" if _recording_active() else "Start Recording",
+            destructive=_recording_active(),
+        )
+        _draw_menu_text(
+            screen,
+            "Press V anytime to stop early.\nBlank keeps recording until stopped.",
+            layout["video_help"],
+            color=MENU_MUTED,
+            tiny=True,
+        )
+
+
+def _run_screenshot_action():
+    try:
+        output_path = save_display_screenshot(STATE.screenshot_mode)
+    except OSError as exc:
+        print(f"[sim_ui] screenshot failed: {exc}")
+    else:
+        print(f"[sim_ui] screenshot saved: {output_path}")
+    STATE.dirty = True
+
+
+def _toggle_recording_action():
+    if _recording_active():
+        try:
+            output_path = stop_display_recording()
+        except OSError as exc:
+            print(f"[sim_ui] recording failed: {exc}")
+        else:
+            print(f"[sim_ui] recording saved: {output_path}")
+    else:
+        limit_seconds = _selected_video_limit_seconds()
+        try:
+            output_path = start_display_recording(
+                mode=STATE.video_mode,
+                limit_seconds=limit_seconds,
+            )
+        except OSError as exc:
+            print(f"[sim_ui] recording failed: {exc}")
+        else:
+            if limit_seconds is None:
+                print(f"[sim_ui] recording started: {output_path}")
+            else:
+                print(f"[sim_ui] recording started: {output_path} (limit {limit_seconds:g}s)")
+    STATE.dirty = True
+
+
+def _handle_menu_mouse_down(pos):
+    layout = _menu_layout(STATE.screen)
+    if layout["burger"].collidepoint(pos):
+        STATE.menu_open = not STATE.menu_open
+        if not STATE.menu_open:
+            STATE.menu_focus_field = None
+        STATE.dirty = True
+        return True
+
+    if not STATE.menu_open:
+        return False
+
+    if not layout["panel"].collidepoint(pos):
+        STATE.menu_open = False
+        STATE.menu_focus_field = None
+        STATE.dirty = True
+        return True
+
+    if layout["tab_screenshot"].collidepoint(pos):
+        STATE.menu_tab = MENU_TAB_SCREENSHOT
+        STATE.menu_focus_field = None
+        STATE.dirty = True
+        return True
+    if layout["tab_video"].collidepoint(pos):
+        STATE.menu_tab = MENU_TAB_VIDEO
+        STATE.dirty = True
+        return True
+
+    if STATE.menu_tab == MENU_TAB_SCREENSHOT:
+        for mode, rect in layout["screenshot_rows"]:
+            if rect.collidepoint(pos):
+                STATE.screenshot_mode = mode
+                STATE.dirty = True
+                return True
+        if layout["screenshot_button"].collidepoint(pos):
+            _run_screenshot_action()
+            return True
+    else:
+        for mode, rect in layout["video_rows"]:
+            if rect.collidepoint(pos):
+                STATE.video_mode = mode
+                STATE.dirty = True
+                return True
+        if layout["video_field"].collidepoint(pos):
+            STATE.menu_focus_field = VIDEO_LIMIT_FIELD_ID
+            STATE.dirty = True
+            return True
+        STATE.menu_focus_field = None
+        if layout["video_button"].collidepoint(pos):
+            _toggle_recording_action()
+            return True
+
+    STATE.dirty = True
+    return True
+
+
+def _handle_menu_keydown(event):
+    if not STATE.menu_open or STATE.menu_tab != MENU_TAB_VIDEO:
+        return False
+    if STATE.menu_focus_field != VIDEO_LIMIT_FIELD_ID:
+        return False
+
+    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+        STATE.menu_focus_field = None
+        STATE.dirty = True
+        return True
+    if event.key == pygame.K_BACKSPACE:
+        STATE.video_limit_input = STATE.video_limit_input[:-1]
+        STATE.dirty = True
+        return True
+    if event.key == pygame.K_DELETE:
+        STATE.video_limit_input = ""
+        STATE.dirty = True
+        return True
+
+    char = event.unicode
+    if char and char in "0123456789.":
+        if char == "." and "." in STATE.video_limit_input:
+            return True
+        if len(STATE.video_limit_input) >= VIDEO_LIMIT_MAX_CHARS:
+            return True
+        STATE.video_limit_input += char
+        STATE.dirty = True
+        return True
+
+    return False
 
 
 def _draw_shell(screen):
@@ -1581,6 +2077,8 @@ def poll_events():
             continue
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if _handle_menu_mouse_down(event.pos):
+                continue
             for item in STATE.key_widgets:
                 if item.widget.is_clicked(event.pos):
                     if item.row is not None and item.col is not None:
@@ -1594,6 +2092,23 @@ def poll_events():
             _release_key_source("mouse:left")
 
         if event.type == pygame.KEYDOWN:
+            ctrl_held = bool(event.mod & pygame.KMOD_CTRL)
+
+            if event.key == pygame.K_F5:
+                _stop_recording_for_exit()
+                raise SystemExit(RELOAD_EXIT_CODE)
+            if ctrl_held and event.key == pygame.K_q:
+                _stop_recording_for_exit()
+                raise SystemExit(0)
+            if event.key == pygame.K_s:
+                _run_screenshot_action()
+                continue
+            if event.key == pygame.K_v:
+                _toggle_recording_action()
+                continue
+            if _handle_menu_keydown(event):
+                continue
+
             action, payload = _keydown_action(event)
 
             if action == "quit":
@@ -1603,28 +2118,10 @@ def poll_events():
                 _stop_recording_for_exit()
                 raise SystemExit(RELOAD_EXIT_CODE)
             if action == "screenshot":
-                try:
-                    output_path = save_display_screenshot()
-                except OSError as exc:
-                    print(f"[sim_ui] screenshot failed: {exc}")
-                else:
-                    print(f"[sim_ui] screenshot saved: {output_path}")
+                _run_screenshot_action()
                 continue
             if action == "recording_toggle":
-                if _recording_active():
-                    try:
-                        output_path = stop_display_recording()
-                    except OSError as exc:
-                        print(f"[sim_ui] recording failed: {exc}")
-                    else:
-                        print(f"[sim_ui] recording saved: {output_path}")
-                else:
-                    try:
-                        output_path = start_display_recording()
-                    except OSError as exc:
-                        print(f"[sim_ui] recording failed: {exc}")
-                    else:
-                        print(f"[sim_ui] recording started: {output_path}")
+                _toggle_recording_action()
                 continue
             if action == "queue" and payload is not None:
                 _press_key_by_name(_keyboard_source_id(event.key), payload)
@@ -1800,7 +2297,8 @@ def render(force: bool = False):
             _refresh_recording_frame_cache()
         _draw_recording_indicator(STATE.screen, disp)
 
+    _draw_capture_menu(STATE.screen)
     pygame.display.flip()
-    _pump_video_recording(now)
     STATE.last_render = now
     STATE.dirty = False
+    _pump_video_recording(now)

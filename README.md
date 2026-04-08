@@ -82,13 +82,24 @@ If PowerShell blocks script activation on Windows, run the Command Prompt varian
   - `Ctrl+L` -> `lock`
   - `0-9`, `.,()+-/*` -> matching calculator keys
   - `F1`, `F2`, `F3`, `F4`, `F6` -> matching calculator keys
-  - `S` -> save a display screenshot
-  - `V` -> start/stop display video recording
+  - `S` -> save a screenshot using the currently selected screenshot mode
+  - `V` -> start/stop video recording using the currently selected video mode
   - `Esc` -> `home`
   - `Ctrl+Q` -> quit
 
 ## Notes
 
+- Use the top-left burger menu in the simulator window to switch capture settings.
+- `Screenshot` mode supports:
+  - `SVG Pixels` -> pure vector export of the monochrome display contents
+  - `Display Background` -> display-only image with the simulator's display background
+  - `Simulator Screenshot` -> full simulator export
+- `Video` mode supports:
+  - `Simulator Video` -> full simulator export with a pure white outer background
+  - `Display Background` -> display-only video with the simulator's display background
+- The video menu includes a `Video Limit (seconds)` field.
+  - Leave it blank to keep recording until you press `V` again or click stop.
+  - Enter a number to auto-stop after that many seconds; manual `V` stop still works.
 - Paths like `/db/...` or `/apps/...` are remapped to `./calsci_latest_itr/db/...` and `./calsci_latest_itr/apps/...` by default.
 - Some hardware/network-specific apps run in simulated/no-op mode where needed.
 - Screenshots are saved in `../simulator_screen_shots`, and display recordings are saved in `../simulator_videos`.
