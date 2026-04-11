@@ -97,6 +97,10 @@ If PowerShell blocks script activation on Windows, run the Command Prompt varian
 - `Video` mode supports:
   - `Simulator Video` -> full simulator export with a pure white outer background
   - `Display Background` -> display-only video with the simulator's display background
+  - `Transparent APNG` -> animated PNG with transparent outer background for website use
+  - `Transparent WebM` -> web video with transparent outer background for website use
+  - `Transparent GIF` -> animated GIF export with transparent outer background
+    GIF exports are auto-compressed locally after recording stops.
 - The video menu includes a `Video Limit (seconds)` field.
   - Leave it blank to keep recording until you press `V` again or click stop.
   - Enter a number to auto-stop after that many seconds; manual `V` stop still works.

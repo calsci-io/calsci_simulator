@@ -215,3 +215,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local export verification artifacts
+tmp_gif_quality/
+tmp_gif_verify/

@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Optional
 
 import pygame
+try:
+    from PIL import Image, ImageSequence
+except Exception:
+    Image = None
+    ImageSequence = None
 
 # -----------------------------------------------------------------------------
 # UI constants (ported from calsci_simulator)
@@ -190,6 +195,7 @@ VIDEO_FILENAME_PREFIX = "display"
 VIDEO_FPS = 20
 VIDEO_SCALE = 6
 EXPORT_FRAME_MAX_DIM = 1080
+GIF_FALLBACK_MAX_COLORS = 255
 CLICK_SAMPLE_RATE = 22050
 CLICK_VOLUME = 0.22
 CLICK_DURATION_SECONDS = 0.035
@@ -200,6 +206,9 @@ SCREENSHOT_MODE_SIMULATOR = "simulator"
 
 VIDEO_MODE_DISPLAY = "display"
 VIDEO_MODE_SIMULATOR = "simulator"
+VIDEO_MODE_APNG = "apng"
+VIDEO_MODE_WEBM = "webm"
+VIDEO_MODE_GIF = "gif"
 
 MENU_TAB_SCREENSHOT = "screenshot"
 MENU_TAB_VIDEO = "video"
@@ -213,6 +222,9 @@ SCREENSHOT_MODE_OPTIONS = (
 VIDEO_MODE_OPTIONS = (
     (VIDEO_MODE_SIMULATOR, "Simulator Video"),
     (VIDEO_MODE_DISPLAY, "Display Background"),
+    (VIDEO_MODE_APNG, "Transparent APNG"),
+    (VIDEO_MODE_WEBM, "Transparent WebM"),
+    (VIDEO_MODE_GIF, "Transparent GIF"),
 )
 
 SCREENSHOT_FILENAME_PREFIX = {
@@ -224,6 +236,17 @@ SCREENSHOT_FILENAME_PREFIX = {
 VIDEO_FILENAME_PREFIX = {
     VIDEO_MODE_SIMULATOR: "simulator",
     VIDEO_MODE_DISPLAY: "display_background",
+    VIDEO_MODE_APNG: "simulator_transparent",
+    VIDEO_MODE_WEBM: "simulator_transparent",
+    VIDEO_MODE_GIF: "simulator_transparent",
+}
+
+VIDEO_FILENAME_SUFFIX = {
+    VIDEO_MODE_SIMULATOR: "mp4",
+    VIDEO_MODE_DISPLAY: "mp4",
+    VIDEO_MODE_APNG: "apng",
+    VIDEO_MODE_WEBM: "webm",
+    VIDEO_MODE_GIF: "gif",
 }
 
 MENU_BG = (246, 246, 246)
@@ -371,6 +394,7 @@ class _UIState:
         self.click_sound_ready = False
         self.recording_process = None
         self.recording_path = None
+        self.recording_process_path = None
         self.recording_last_frame = None
         self.recording_next_frame_at = 0.0
         self.recording_thread = None
@@ -380,6 +404,7 @@ class _UIState:
         self.recording_frame_dirty = True
         self.recording_mode = VIDEO_MODE_SIMULATOR
         self.recording_deadline_at = None
+        self.recording_started_at = None
 
         self.menu_open = False
         self.menu_tab = MENU_TAB_SCREENSHOT
@@ -729,6 +754,8 @@ def _build_simulator_export_surface(white_background=False):
 def _build_capture_surface(mode, for_video=False):
     if mode == SCREENSHOT_MODE_DISPLAY or mode == VIDEO_MODE_DISPLAY:
         return _build_display_export_surface()
+    if mode in (VIDEO_MODE_APNG, VIDEO_MODE_WEBM, VIDEO_MODE_GIF):
+        return _build_simulator_export_surface(white_background=False)
     if mode == SCREENSHOT_MODE_SIMULATOR or mode == VIDEO_MODE_SIMULATOR:
         return _build_simulator_export_surface(white_background=for_video)
     return None
@@ -739,8 +766,10 @@ def _capture_recording_frame(mode=None):
     selected_mode = mode or STATE.recording_mode or STATE.video_mode
     export_surface = _build_capture_surface(selected_mode, for_video=True)
     if export_surface is not None:
-        return pygame.image.tobytes(export_surface, "RGB"), export_surface.get_size()
-    return pygame.image.tobytes(STATE.lcd_surface, "RGB"), (LCD_WIDTH, LCD_HEIGHT)
+        if selected_mode in (VIDEO_MODE_APNG, VIDEO_MODE_WEBM, VIDEO_MODE_GIF):
+            return pygame.image.tobytes(export_surface, "RGBA"), export_surface.get_size(), "rgba"
+        return pygame.image.tobytes(export_surface, "RGB"), export_surface.get_size(), "rgb24"
+    return pygame.image.tobytes(STATE.lcd_surface, "RGB"), (LCD_WIDTH, LCD_HEIGHT), "rgb24"
 
 
 def save_display_screenshot(mode=None) -> Path:
@@ -780,12 +809,16 @@ def _build_timestamped_output_path(directory: Path, prefix: str, suffix: str) ->
     return directory / filename
 
 
+def _build_gif_intermediate_path(final_path: Path) -> Path:
+    return final_path.with_name(final_path.stem + "__recording.apng")
+
+
 def _recording_active() -> bool:
     return STATE.recording_process is not None
 
 
 def _capture_display_frame_bytes() -> bytes:
-    frame_bytes, _ = _capture_recording_frame()
+    frame_bytes, _, _ = _capture_recording_frame()
     return frame_bytes
 
 
@@ -801,6 +834,7 @@ def _clear_recording_state():
 
     STATE.recording_process = None
     STATE.recording_path = None
+    STATE.recording_process_path = None
     STATE.recording_last_frame = None
     STATE.recording_next_frame_at = 0.0
     STATE.recording_thread = None
@@ -809,6 +843,7 @@ def _clear_recording_state():
     STATE.recording_frame_dirty = True
     STATE.recording_mode = STATE.video_mode
     STATE.recording_deadline_at = None
+    STATE.recording_started_at = None
     STATE.dirty = True
 
 
@@ -846,6 +881,7 @@ def _join_recording_thread(timeout: float = 2.0):
 def _abort_display_recording(detail: str) -> str:
     process = STATE.recording_process
     output_path = STATE.recording_path
+    process_output_path = STATE.recording_process_path
     stop_event = STATE.recording_stop_event
     if stop_event is not None:
         stop_event.set()
@@ -859,6 +895,16 @@ def _abort_display_recording(detail: str) -> str:
     message = detail
     if stderr_text:
         message = f"{detail}: {stderr_text}" if detail else stderr_text
+
+    for path in (process_output_path, output_path):
+        if path is None:
+            continue
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
 
     if output_path is not None:
         print(f"[sim_ui] recording failed for {output_path}: {message}")
@@ -934,6 +980,193 @@ def _pump_video_recording(now: Optional[float] = None) -> Optional[str]:
     return None
 
 
+def _extend_webm_recording_command(command, output_path: Path, crf="30", cpu_used="4"):
+    command.extend(
+        [
+            "-c:v",
+            "libvpx-vp9",
+            "-pix_fmt",
+            "yuva420p",
+            "-metadata:s:v:0",
+            "alpha_mode=1",
+            "-b:v",
+            "0",
+            "-crf",
+            str(crf),
+            "-deadline",
+            "realtime",
+            "-cpu-used",
+            str(cpu_used),
+            "-row-mt",
+            "1",
+            "-auto-alt-ref",
+            "0",
+            str(output_path),
+        ]
+    )
+
+
+def _extend_gif_intermediate_recording_command(command, output_path: Path):
+    command.extend(
+        [
+            "-c:v",
+            "apng",
+            "-pix_fmt",
+            "rgba",
+            "-plays",
+            "0",
+            str(output_path),
+        ]
+    )
+
+
+def _optimize_gif_recording_with_ffmpeg(source_path: Path, target_path: Path, duration_seconds=None):
+    temp_output_path = target_path.with_name(target_path.stem + "__optimized.gif")
+
+    filter_complex = (
+        "[0:v]split[palette_in][gif_in];"
+        f"[palette_in]palettegen=max_colors={GIF_FALLBACK_MAX_COLORS}:"
+        "reserve_transparent=1:stats_mode=diff[palette];"
+        "[gif_in][palette]paletteuse=alpha_threshold=128:"
+        "dither=bayer:bayer_scale=3:diff_mode=rectangle"
+    )
+
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(source_path),
+                "-filter_complex",
+                filter_complex,
+                "-gifflags",
+                "+transdiff",
+                "-loop",
+                "0",
+                str(temp_output_path),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr_text = ""
+        try:
+            stderr_text = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
+        except Exception:
+            stderr_text = ""
+        detail = stderr_text or "ffmpeg gif optimization failed"
+        raise OSError(detail) from exc
+
+    temp_output_path.replace(target_path)
+    try:
+        source_path.unlink()
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+
+def _optimize_gif_recording_with_pillow(source_path: Path, target_path: Path, duration_seconds=None):
+    if Image is None or ImageSequence is None:
+        raise RuntimeError("Pillow is not available")
+
+    source_image = Image.open(source_path)
+    frames = []
+    durations = []
+    previous_rgba = None
+    previous_bytes = None
+    accumulated_ms = 0
+    default_frame_ms = int(round(1000.0 / max(1, VIDEO_FPS)))
+
+    for frame in ImageSequence.Iterator(source_image):
+        rgba = frame.convert("RGBA")
+        frame_ms = frame.info.get("duration", default_frame_ms)
+        try:
+            frame_ms = int(round(float(frame_ms)))
+        except Exception:
+            frame_ms = default_frame_ms
+        frame_ms = max(20, frame_ms)
+
+        frame_bytes = rgba.tobytes()
+        if previous_bytes is not None and frame_bytes == previous_bytes:
+            accumulated_ms += frame_ms
+            continue
+
+        if previous_rgba is not None:
+            frames.append(previous_rgba)
+            durations.append(accumulated_ms)
+
+        previous_rgba = rgba.copy()
+        previous_bytes = frame_bytes
+        accumulated_ms = frame_ms
+
+    if previous_rgba is not None:
+        frames.append(previous_rgba)
+        durations.append(accumulated_ms)
+
+    if not frames:
+        raise OSError("gif optimizer found no frames")
+
+    target_total_ms = None
+    if duration_seconds is not None:
+        try:
+            target_total_ms = int(round(float(duration_seconds) * 1000.0))
+        except Exception:
+            target_total_ms = None
+    if target_total_ms is None or target_total_ms <= 0:
+        target_total_ms = sum(durations)
+
+    current_total_ms = sum(durations)
+    delta_ms = target_total_ms - current_total_ms
+    durations[-1] = max(20, durations[-1] + delta_ms)
+
+    temp_output_path = target_path.with_name(target_path.stem + "__optimized.gif")
+    frames[0].save(
+        temp_output_path,
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+        duration=durations,
+        optimize=True,
+        disposal=2,
+    )
+    temp_output_path.replace(target_path)
+
+    try:
+        source_image.close()
+    except Exception:
+        pass
+    try:
+        source_path.unlink()
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+
+def _optimize_gif_recording(source_path: Path, target_path: Path, duration_seconds=None):
+    try:
+        _optimize_gif_recording_with_pillow(
+            source_path,
+            target_path,
+            duration_seconds=duration_seconds,
+        )
+        return
+    except Exception:
+        pass
+
+    _optimize_gif_recording_with_ffmpeg(
+        source_path,
+        target_path,
+        duration_seconds=duration_seconds,
+    )
+
+
 def start_display_recording(mode=None, limit_seconds=None) -> Path:
     ensure_ui()
 
@@ -944,17 +1177,14 @@ def start_display_recording(mode=None, limit_seconds=None) -> Path:
     output_path = _build_timestamped_output_path(
         VIDEO_DIR,
         VIDEO_FILENAME_PREFIX.get(selected_mode, "video"),
-        "mp4",
+        VIDEO_FILENAME_SUFFIX.get(selected_mode, "mp4"),
     )
-    initial_frame, frame_size = _capture_recording_frame(mode=selected_mode)
+    process_output_path = output_path
+    if selected_mode == VIDEO_MODE_GIF:
+        process_output_path = _build_gif_intermediate_path(output_path)
+    initial_frame, frame_size, input_pixel_format = _capture_recording_frame(mode=selected_mode)
     frame_width, frame_height = frame_size
 
-    video_filter = "format=yuv420p"
-    if frame_size == (LCD_WIDTH, LCD_HEIGHT):
-        video_filter = (
-            f"scale={LCD_WIDTH * VIDEO_SCALE}:{LCD_HEIGHT * VIDEO_SCALE}:flags=neighbor,"
-            "format=yuv420p"
-        )
     command = [
         "ffmpeg",
         "-hide_banner",
@@ -964,23 +1194,51 @@ def start_display_recording(mode=None, limit_seconds=None) -> Path:
         "-f",
         "rawvideo",
         "-pixel_format",
-        "rgb24",
+        input_pixel_format,
         "-video_size",
         f"{frame_width}x{frame_height}",
         "-framerate",
         str(VIDEO_FPS),
         "-i",
         "-",
-        "-vf",
-        video_filter,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-movflags",
-        "+faststart",
-        str(output_path),
     ]
+
+    if selected_mode == VIDEO_MODE_APNG:
+        command.extend(
+            [
+                "-c:v",
+                "apng",
+                "-pix_fmt",
+                "rgba",
+                "-plays",
+                "0",
+                str(output_path),
+            ]
+        )
+    elif selected_mode == VIDEO_MODE_WEBM:
+        _extend_webm_recording_command(command, output_path, crf="30", cpu_used="4")
+    elif selected_mode == VIDEO_MODE_GIF:
+        _extend_gif_intermediate_recording_command(command, process_output_path)
+    else:
+        video_filter = "format=yuv420p"
+        if frame_size == (LCD_WIDTH, LCD_HEIGHT):
+            video_filter = (
+                f"scale={LCD_WIDTH * VIDEO_SCALE}:{LCD_HEIGHT * VIDEO_SCALE}:flags=neighbor,"
+                "format=yuv420p"
+            )
+        command.extend(
+            [
+                "-vf",
+                video_filter,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-movflags",
+                "+faststart",
+                str(output_path),
+            ]
+        )
 
     try:
         process = subprocess.Popen(
@@ -994,7 +1252,9 @@ def start_display_recording(mode=None, limit_seconds=None) -> Path:
 
     STATE.recording_process = process
     STATE.recording_path = output_path
+    STATE.recording_process_path = process_output_path
     STATE.recording_mode = selected_mode
+    STATE.recording_started_at = time.monotonic()
     with STATE.recording_frame_lock:
         STATE.recording_last_frame = initial_frame
         STATE.recording_frame_dirty = False
@@ -1027,6 +1287,9 @@ def stop_display_recording() -> Path:
 
     process = STATE.recording_process
     output_path = STATE.recording_path
+    process_output_path = STATE.recording_process_path
+    recording_mode = STATE.recording_mode
+    recording_started_at = STATE.recording_started_at
     stop_event = STATE.recording_stop_event
     if stop_event is not None:
         stop_event.set()
@@ -1034,12 +1297,22 @@ def stop_display_recording() -> Path:
     worker_error = STATE.recording_error
     _clear_recording_state()
 
-    returncode, stderr_text = _close_recording_process(process)
+    close_timeout = 30.0 if recording_mode == VIDEO_MODE_GIF else 10.0
+    returncode, stderr_text = _close_recording_process(process, timeout=close_timeout)
     if returncode != 0:
         detail = stderr_text or f"ffmpeg exited with status {returncode}"
         raise OSError(detail)
     if worker_error:
         raise OSError(worker_error)
+
+    if recording_mode == VIDEO_MODE_GIF:
+        if process_output_path is None:
+            raise OSError("gif recording output is missing")
+        print(f"[sim_ui] optimizing gif locally: {output_path}")
+        duration_seconds = None
+        if recording_started_at is not None:
+            duration_seconds = max(0.0, time.monotonic() - recording_started_at)
+        _optimize_gif_recording(process_output_path, output_path, duration_seconds=duration_seconds)
 
     return output_path
 
@@ -1363,7 +1636,7 @@ def _draw_capture_menu(screen):
         )
         _draw_menu_text(
             screen,
-            "Press V anytime to stop early.\nBlank keeps recording until stopped.",
+            "MP4, APNG, WebM, or GIF.\nPress V anytime to stop early.",
             layout["video_help"],
             color=MENU_MUTED,
             tiny=True,
