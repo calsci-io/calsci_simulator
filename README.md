@@ -70,18 +70,18 @@ If PowerShell blocks script activation on Windows, run the Command Prompt varian
 
 - Click calculator keys in the window.
 - Optional keyboard shortcuts:
-  - `F5` -> reload the simulator
+  - `F7` -> reload the simulator
   - `Enter` -> `ok`
-  - `Backspace` -> `back`
+  - `Backspace` -> simulator `del`
   - `Delete` -> `nav_b`
   - Arrow keys -> navigation keys
   - `Ctrl+Left` -> `back`
   - `Ctrl+A` -> `alpha`
-  - `Ctrl+B` -> `beta`
+  - `Ctrl+B` -> `back`
   - `Ctrl+H` -> `home`
   - `Ctrl+L` -> `lock`
   - `0-9`, `.,()+-/*` -> matching calculator keys
-  - `F1`, `F2`, `F3`, `F4`, `F6` -> matching calculator keys
+  - `F1`, `F2`, `F3`, `F4`, `F5`, `F6` -> matching calculator keys
   - `S` -> save a screenshot using the currently selected screenshot mode
   - `V` -> start/stop video recording using the currently selected video mode
   - `Esc` -> `home`

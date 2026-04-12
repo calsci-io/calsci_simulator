@@ -378,6 +378,7 @@ class _UIState:
         self.key_widgets = []
         self.pending_keys = deque()
         self.active_sources = {}
+        self.active_repeat_deadlines = {}
         self.last_widget_id = None
         self.last_key_ts = 0.0
 
@@ -419,6 +420,8 @@ STATE = _UIState()
 PRESS_HOLD_SECS = 0.05
 PRESS_RELEASE_SECS = 0.10
 PRESS_TOTAL_SECS = PRESS_HOLD_SECS + PRESS_RELEASE_SECS
+KEY_REPEAT_INITIAL_DELAY_SECS = 0.40
+KEY_REPEAT_INTERVAL_SECS = 0.08
 RELOAD_EXIT_CODE = "__CALSCI_SIMULATOR_RELOAD__"
 
 PRINTABLE_SHORTCUTS = {
@@ -444,7 +447,7 @@ PRINTABLE_SHORTCUTS = {
 
 KEYCODE_SHORTCUTS = {
     pygame.K_RETURN: "ok",
-    pygame.K_BACKSPACE: "back",
+    pygame.K_BACKSPACE: "nav_b",
     pygame.K_DELETE: "nav_b",
     pygame.K_ESCAPE: "home",
     pygame.K_UP: "nav_u",
@@ -455,12 +458,13 @@ KEYCODE_SHORTCUTS = {
     pygame.K_F2: "F2",
     pygame.K_F3: "F3",
     pygame.K_F4: "F4",
+    pygame.K_F5: "F5",
     pygame.K_F6: "F6",
 }
 
 CTRL_SHORTCUTS = {
     pygame.K_a: "alpha",
-    pygame.K_b: "beta",
+    pygame.K_b: "back",
     pygame.K_h: "home",
     pygame.K_l: "lock",
     pygame.K_LEFT: "back",
@@ -2244,17 +2248,27 @@ def _active_key_matches(col_pin: int) -> bool:
     return False
 
 
+def _pending_key_exists(row_idx: int, col_idx: int) -> bool:
+    target = (int(row_idx), int(col_idx))
+    for pending in STATE.pending_keys:
+        if pending == target:
+            return True
+    return False
+
+
 def _press_key_source(source_id: str, row_idx: int, col_idx: int, widget_id: Optional[int] = None):
     next_state = (row_idx, col_idx, widget_id)
     if STATE.active_sources.get(source_id) == next_state:
         return
 
     STATE.active_sources[source_id] = next_state
+    STATE.active_repeat_deadlines[source_id] = time.monotonic() + KEY_REPEAT_INITIAL_DELAY_SECS
     _queue_key(row_idx, col_idx, widget_id=widget_id)
 
 
 def _release_key_source(source_id: str):
     active = STATE.active_sources.pop(source_id, None)
+    STATE.active_repeat_deadlines.pop(source_id, None)
     if active is None:
         return False
 
@@ -2272,8 +2286,31 @@ def _release_all_key_sources():
             last_widget_id = widget_id
 
     STATE.active_sources.clear()
+    STATE.active_repeat_deadlines.clear()
     _set_recent_widget(last_widget_id)
     return True
+
+
+def _pump_active_key_repeats(now: Optional[float] = None):
+    if not STATE.active_sources:
+        return
+
+    if now is None:
+        now = time.monotonic()
+
+    for source_id, active in list(STATE.active_sources.items()):
+        if not isinstance(active, tuple) or len(active) != 3:
+            continue
+
+        deadline = STATE.active_repeat_deadlines.get(source_id)
+        if deadline is None or now < deadline:
+            continue
+
+        row_idx, col_idx, widget_id = active
+        if not _pending_key_exists(row_idx, col_idx):
+            _queue_key(row_idx, col_idx, widget_id=widget_id)
+
+        STATE.active_repeat_deadlines[source_id] = now + KEY_REPEAT_INTERVAL_SECS
 
 
 def _queue_key_by_name(key_name: str) -> bool:
@@ -2303,7 +2340,7 @@ def _keyboard_source_id(key_code: int) -> str:
 def _keydown_action(event):
     ctrl_held = bool(event.mod & pygame.KMOD_CTRL)
 
-    if event.key == pygame.K_F5:
+    if event.key == pygame.K_F7:
         return ("reload", None)
 
     if ctrl_held and event.key == pygame.K_q:
@@ -2367,7 +2404,7 @@ def poll_events():
         if event.type == pygame.KEYDOWN:
             ctrl_held = bool(event.mod & pygame.KMOD_CTRL)
 
-            if event.key == pygame.K_F5:
+            if event.key == pygame.K_F7:
                 _stop_recording_for_exit()
                 raise SystemExit(RELOAD_EXIT_CODE)
             if ctrl_held and event.key == pygame.K_q:
@@ -2402,6 +2439,8 @@ def poll_events():
         if event.type == pygame.KEYUP:
             _release_key_source(_keyboard_source_id(event.key))
 
+    _pump_active_key_repeats()
+
     if STATE.dirty or (time.monotonic() - STATE.last_key_ts) < PRESS_TOTAL_SECS:
         render(force=False)
 
@@ -2422,9 +2461,6 @@ def read_col_pin(col_pin: int) -> int:
             STATE.pending_keys.popleft()
             return 0
         return 1
-
-    if _active_key_matches(col_pin):
-        return 0
 
     return 1
 
