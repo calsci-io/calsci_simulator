@@ -10,11 +10,6 @@ from pathlib import Path
 from typing import Optional
 
 import pygame
-try:
-    from PIL import Image, ImageSequence
-except Exception:
-    Image = None
-    ImageSequence = None
 
 # -----------------------------------------------------------------------------
 # UI constants (ported from calsci_simulator)
@@ -195,7 +190,6 @@ VIDEO_FILENAME_PREFIX = "display"
 VIDEO_FPS = 20
 VIDEO_SCALE = 6
 EXPORT_FRAME_MAX_DIM = 1080
-GIF_FALLBACK_MAX_COLORS = 255
 CLICK_SAMPLE_RATE = 22050
 CLICK_VOLUME = 0.22
 CLICK_DURATION_SECONDS = 0.035
@@ -209,6 +203,7 @@ VIDEO_MODE_SIMULATOR = "simulator"
 VIDEO_MODE_APNG = "apng"
 VIDEO_MODE_WEBM = "webm"
 VIDEO_MODE_GIF = "gif"
+VIDEO_MODE_GIF_KEYSTROKES = "gif_keystrokes"
 
 MENU_TAB_SCREENSHOT = "screenshot"
 MENU_TAB_VIDEO = "video"
@@ -225,6 +220,7 @@ VIDEO_MODE_OPTIONS = (
     (VIDEO_MODE_APNG, "Transparent APNG"),
     (VIDEO_MODE_WEBM, "Transparent WebM"),
     (VIDEO_MODE_GIF, "Transparent GIF"),
+    (VIDEO_MODE_GIF_KEYSTROKES, "Transparent GIF + Keys"),
 )
 
 SCREENSHOT_FILENAME_PREFIX = {
@@ -239,6 +235,7 @@ VIDEO_FILENAME_PREFIX = {
     VIDEO_MODE_APNG: "simulator_transparent",
     VIDEO_MODE_WEBM: "simulator_transparent",
     VIDEO_MODE_GIF: "simulator_transparent",
+    VIDEO_MODE_GIF_KEYSTROKES: "simulator_transparent_keystrokes",
 }
 
 VIDEO_FILENAME_SUFFIX = {
@@ -247,7 +244,22 @@ VIDEO_FILENAME_SUFFIX = {
     VIDEO_MODE_APNG: "apng",
     VIDEO_MODE_WEBM: "webm",
     VIDEO_MODE_GIF: "gif",
+    VIDEO_MODE_GIF_KEYSTROKES: "gif",
 }
+
+TRANSPARENT_VIDEO_MODES = (
+    VIDEO_MODE_APNG,
+    VIDEO_MODE_WEBM,
+    VIDEO_MODE_GIF,
+    VIDEO_MODE_GIF_KEYSTROKES,
+)
+GIF_VIDEO_MODES = (
+    VIDEO_MODE_GIF,
+    VIDEO_MODE_GIF_KEYSTROKES,
+)
+KEYSTROKE_EXPORT_VIDEO_MODES = (
+    VIDEO_MODE_GIF_KEYSTROKES,
+)
 
 MENU_BG = (246, 246, 246)
 MENU_BORDER = (72, 72, 72)
@@ -364,6 +376,8 @@ class _UIState:
         self.export_display_rect = None
         self.export_display_bg_scaled = None
         self.export_display_bg_scale_key = None
+        self.export_key_widgets = []
+        self.export_key_widgets_scale_key = None
 
         self.main_font = None
         self.label_font = None
@@ -735,7 +749,36 @@ def _build_display_export_surface():
     return export_surface
 
 
-def _build_simulator_export_surface(white_background=False):
+def _get_export_key_widgets(size):
+    target_size = (max(1, int(size[0])), max(1, int(size[1])))
+    if (
+        STATE.export_key_widgets
+        and STATE.export_key_widgets_scale_key == target_size
+    ):
+        return STATE.export_key_widgets
+
+    layout_surface = pygame.Surface(target_size, pygame.SRCALPHA)
+    STATE.export_key_widgets = _build_image_key_widgets(layout_surface)
+    STATE.export_key_widgets_scale_key = target_size
+    return STATE.export_key_widgets
+
+
+def _draw_key_widgets(screen, key_widgets, now=None):
+    current_time = time.monotonic() if now is None else now
+    active_widget_ids = _active_widget_ids()
+    for item in key_widgets:
+        if item.widget_id in active_widget_ids:
+            amount = 1.0
+        else:
+            amount = (
+                _press_amount(current_time, STATE.last_key_ts)
+                if STATE.last_widget_id == item.widget_id
+                else 0.0
+            )
+        item.widget.draw(screen, pressed=amount > 0.0, amount=amount)
+
+
+def _build_simulator_export_surface(white_background=False, include_pressed_keys=False):
     template_surface, display_rect = _get_scaled_export_template()
     if template_surface is None or display_rect is None or STATE.lcd_surface is None:
         return _build_display_export_surface()
@@ -752,13 +795,25 @@ def _build_simulator_export_surface(white_background=False):
         (display_rect.width, display_rect.height),
     )
     export_surface.blit(scaled_lcd, display_rect.topleft)
+
+    if include_pressed_keys:
+        _draw_key_widgets(
+            export_surface,
+            _get_export_key_widgets(export_surface.get_size()),
+        )
+
     return export_surface
 
 
 def _build_capture_surface(mode, for_video=False):
     if mode == SCREENSHOT_MODE_DISPLAY or mode == VIDEO_MODE_DISPLAY:
         return _build_display_export_surface()
-    if mode in (VIDEO_MODE_APNG, VIDEO_MODE_WEBM, VIDEO_MODE_GIF):
+    if mode in KEYSTROKE_EXPORT_VIDEO_MODES:
+        return _build_simulator_export_surface(
+            white_background=False,
+            include_pressed_keys=True,
+        )
+    if mode in TRANSPARENT_VIDEO_MODES:
         return _build_simulator_export_surface(white_background=False)
     if mode == SCREENSHOT_MODE_SIMULATOR or mode == VIDEO_MODE_SIMULATOR:
         return _build_simulator_export_surface(white_background=for_video)
@@ -770,7 +825,7 @@ def _capture_recording_frame(mode=None):
     selected_mode = mode or STATE.recording_mode or STATE.video_mode
     export_surface = _build_capture_surface(selected_mode, for_video=True)
     if export_surface is not None:
-        if selected_mode in (VIDEO_MODE_APNG, VIDEO_MODE_WEBM, VIDEO_MODE_GIF):
+        if selected_mode in TRANSPARENT_VIDEO_MODES:
             return pygame.image.tobytes(export_surface, "RGBA"), export_surface.get_size(), "rgba"
         return pygame.image.tobytes(export_surface, "RGB"), export_surface.get_size(), "rgb24"
     return pygame.image.tobytes(STATE.lcd_surface, "RGB"), (LCD_WIDTH, LCD_HEIGHT), "rgb24"
@@ -811,10 +866,6 @@ def _build_timestamped_output_path(directory: Path, prefix: str, suffix: str) ->
     millis = int((time.time() % 1.0) * 1000)
     filename = f"{prefix}_{stamp}_{millis:03d}.{suffix}"
     return directory / filename
-
-
-def _build_gif_intermediate_path(final_path: Path) -> Path:
-    return final_path.with_name(final_path.stem + "__recording.apng")
 
 
 def _recording_active() -> bool:
@@ -1010,164 +1061,17 @@ def _extend_webm_recording_command(command, output_path: Path, crf="30", cpu_use
     )
 
 
-def _extend_gif_intermediate_recording_command(command, output_path: Path):
+def _extend_gif_recording_command(command, output_path: Path):
     command.extend(
         [
-            "-c:v",
-            "apng",
-            "-pix_fmt",
-            "rgba",
-            "-plays",
+            "-filter_complex",
+            "[0:v]split[pgen][puse];"
+            "[pgen]palettegen=reserve_transparent=1:stats_mode=single[pal];"
+            "[puse][pal]paletteuse=new=1:alpha_threshold=128:dither=sierra2_4a",
+            "-loop",
             "0",
             str(output_path),
         ]
-    )
-
-
-def _optimize_gif_recording_with_ffmpeg(source_path: Path, target_path: Path, duration_seconds=None):
-    temp_output_path = target_path.with_name(target_path.stem + "__optimized.gif")
-
-    filter_complex = (
-        "[0:v]split[palette_in][gif_in];"
-        f"[palette_in]palettegen=max_colors={GIF_FALLBACK_MAX_COLORS}:"
-        "reserve_transparent=1:stats_mode=diff[palette];"
-        "[gif_in][palette]paletteuse=alpha_threshold=128:"
-        "dither=bayer:bayer_scale=3:diff_mode=rectangle"
-    )
-
-    try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-i",
-                str(source_path),
-                "-filter_complex",
-                filter_complex,
-                "-gifflags",
-                "+transdiff",
-                "-loop",
-                "0",
-                str(temp_output_path),
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-    except subprocess.CalledProcessError as exc:
-        stderr_text = ""
-        try:
-            stderr_text = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
-        except Exception:
-            stderr_text = ""
-        detail = stderr_text or "ffmpeg gif optimization failed"
-        raise OSError(detail) from exc
-
-    temp_output_path.replace(target_path)
-    try:
-        source_path.unlink()
-    except FileNotFoundError:
-        pass
-    except Exception:
-        pass
-
-
-def _optimize_gif_recording_with_pillow(source_path: Path, target_path: Path, duration_seconds=None):
-    if Image is None or ImageSequence is None:
-        raise RuntimeError("Pillow is not available")
-
-    source_image = Image.open(source_path)
-    frames = []
-    durations = []
-    previous_rgba = None
-    previous_bytes = None
-    accumulated_ms = 0
-    default_frame_ms = int(round(1000.0 / max(1, VIDEO_FPS)))
-
-    for frame in ImageSequence.Iterator(source_image):
-        rgba = frame.convert("RGBA")
-        frame_ms = frame.info.get("duration", default_frame_ms)
-        try:
-            frame_ms = int(round(float(frame_ms)))
-        except Exception:
-            frame_ms = default_frame_ms
-        frame_ms = max(20, frame_ms)
-
-        frame_bytes = rgba.tobytes()
-        if previous_bytes is not None and frame_bytes == previous_bytes:
-            accumulated_ms += frame_ms
-            continue
-
-        if previous_rgba is not None:
-            frames.append(previous_rgba)
-            durations.append(accumulated_ms)
-
-        previous_rgba = rgba.copy()
-        previous_bytes = frame_bytes
-        accumulated_ms = frame_ms
-
-    if previous_rgba is not None:
-        frames.append(previous_rgba)
-        durations.append(accumulated_ms)
-
-    if not frames:
-        raise OSError("gif optimizer found no frames")
-
-    target_total_ms = None
-    if duration_seconds is not None:
-        try:
-            target_total_ms = int(round(float(duration_seconds) * 1000.0))
-        except Exception:
-            target_total_ms = None
-    if target_total_ms is None or target_total_ms <= 0:
-        target_total_ms = sum(durations)
-
-    current_total_ms = sum(durations)
-    delta_ms = target_total_ms - current_total_ms
-    durations[-1] = max(20, durations[-1] + delta_ms)
-
-    temp_output_path = target_path.with_name(target_path.stem + "__optimized.gif")
-    frames[0].save(
-        temp_output_path,
-        save_all=True,
-        append_images=frames[1:],
-        loop=0,
-        duration=durations,
-        optimize=True,
-        disposal=2,
-    )
-    temp_output_path.replace(target_path)
-
-    try:
-        source_image.close()
-    except Exception:
-        pass
-    try:
-        source_path.unlink()
-    except FileNotFoundError:
-        pass
-    except Exception:
-        pass
-
-
-def _optimize_gif_recording(source_path: Path, target_path: Path, duration_seconds=None):
-    try:
-        _optimize_gif_recording_with_pillow(
-            source_path,
-            target_path,
-            duration_seconds=duration_seconds,
-        )
-        return
-    except Exception:
-        pass
-
-    _optimize_gif_recording_with_ffmpeg(
-        source_path,
-        target_path,
-        duration_seconds=duration_seconds,
     )
 
 
@@ -1184,8 +1088,6 @@ def start_display_recording(mode=None, limit_seconds=None) -> Path:
         VIDEO_FILENAME_SUFFIX.get(selected_mode, "mp4"),
     )
     process_output_path = output_path
-    if selected_mode == VIDEO_MODE_GIF:
-        process_output_path = _build_gif_intermediate_path(output_path)
     initial_frame, frame_size, input_pixel_format = _capture_recording_frame(mode=selected_mode)
     frame_width, frame_height = frame_size
 
@@ -1221,8 +1123,8 @@ def start_display_recording(mode=None, limit_seconds=None) -> Path:
         )
     elif selected_mode == VIDEO_MODE_WEBM:
         _extend_webm_recording_command(command, output_path, crf="30", cpu_used="4")
-    elif selected_mode == VIDEO_MODE_GIF:
-        _extend_gif_intermediate_recording_command(command, process_output_path)
+    elif selected_mode in GIF_VIDEO_MODES:
+        _extend_gif_recording_command(command, process_output_path)
     else:
         video_filter = "format=yuv420p"
         if frame_size == (LCD_WIDTH, LCD_HEIGHT):
@@ -1291,9 +1193,6 @@ def stop_display_recording() -> Path:
 
     process = STATE.recording_process
     output_path = STATE.recording_path
-    process_output_path = STATE.recording_process_path
-    recording_mode = STATE.recording_mode
-    recording_started_at = STATE.recording_started_at
     stop_event = STATE.recording_stop_event
     if stop_event is not None:
         stop_event.set()
@@ -1301,22 +1200,13 @@ def stop_display_recording() -> Path:
     worker_error = STATE.recording_error
     _clear_recording_state()
 
-    close_timeout = 30.0 if recording_mode == VIDEO_MODE_GIF else 10.0
+    close_timeout = 10.0
     returncode, stderr_text = _close_recording_process(process, timeout=close_timeout)
     if returncode != 0:
         detail = stderr_text or f"ffmpeg exited with status {returncode}"
         raise OSError(detail)
     if worker_error:
         raise OSError(worker_error)
-
-    if recording_mode == VIDEO_MODE_GIF:
-        if process_output_path is None:
-            raise OSError("gif recording output is missing")
-        print(f"[sim_ui] optimizing gif locally: {output_path}")
-        duration_seconds = None
-        if recording_started_at is not None:
-            duration_seconds = max(0.0, time.monotonic() - recording_started_at)
-        _optimize_gif_recording(process_output_path, output_path, duration_seconds=duration_seconds)
 
     return output_path
 
@@ -2592,14 +2482,7 @@ def render(force: bool = False):
         STATE.screen.blit(live_display_bg, (disp.x, disp.y))
     scaled_lcd = pygame.transform.scale(STATE.lcd_surface, (disp.width, disp.height))
     STATE.screen.blit(scaled_lcd, (disp.x, disp.y))
-
-    active_widget_ids = _active_widget_ids()
-    for item in STATE.key_widgets:
-        if item.widget_id in active_widget_ids:
-            amount = 1.0
-        else:
-            amount = _press_amount(now, STATE.last_key_ts) if STATE.last_widget_id == item.widget_id else 0.0
-        item.widget.draw(STATE.screen, pressed=amount > 0.0, amount=amount)
+    _draw_key_widgets(STATE.screen, STATE.key_widgets, now=now)
 
     if _recording_active():
         if STATE.recording_frame_dirty:
