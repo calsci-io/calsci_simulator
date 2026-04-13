@@ -2129,6 +2129,18 @@ def _active_widget_ids():
     }
 
 
+def is_key_active(key_name: str) -> bool:
+    coord = KEY_TO_COORD.get(str(key_name))
+    if coord is None:
+        return False
+
+    target_row, target_col = coord
+    for row_idx, col_idx, _widget_id in STATE.active_sources.values():
+        if row_idx == target_row and col_idx == target_col:
+            return True
+    return False
+
+
 def _active_key_matches(col_pin: int) -> bool:
     for row_idx, col_idx, _ in STATE.active_sources.values():
         if COL_PINS[col_idx] != col_pin:
